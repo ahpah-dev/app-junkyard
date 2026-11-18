@@ -1,0 +1,11 @@
+{
+  "id": "pool-bench",
+  "name": "Pool Bench",
+  "category": "Crypto",
+  "description": "Replay a sequence of two-asset swaps against a constant-product liquidity pool and inspect execution prices.",
+  "features": [
+    "Model swaps in both directions",
+    "Track exact reserves with integer arithmetic",
+    "Compare each fill to its pretrade spot price"
+  ]
+}

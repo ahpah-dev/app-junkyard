@@ -1,0 +1,11 @@
+{
+  "id": "sprint-board",
+  "name": "Sprint Board",
+  "category": "Operations",
+  "description": "Run a small delivery team with a visual task board, explicit work limits, and blocker tracking.",
+  "features": [
+    "Interactive five-stage delivery board",
+    "Work-in-progress limits and blocker checks",
+    "Point-based progress and task history"
+  ]
+}

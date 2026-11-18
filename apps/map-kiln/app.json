@@ -1,0 +1,11 @@
+{
+  "id": "map-kiln",
+  "name": "Map Kiln",
+  "category": "Games",
+  "description": "Generate connected room-and-corridor levels with reproducible seeds and editable exit placement.",
+  "features": [
+    "Room packing with connected corridors and optional extra passages",
+    "Shortest-path preview and click-to-place exit",
+    "Level JSON, tile CSV, and colored PNG exports"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "pattern-press",
+  "name": "Pattern Press",
+  "category": "Design",
+  "description": "Arrange seeded geometric motifs into repeatable vector tiles for packaging, fabric, and the web.",
+  "features": [
+    "Three original vector motifs and seeded rotations",
+    "Live nine-tile proof with two-ink palette controls",
+    "Seamless SVG tile and ready-to-use CSS export"
+  ]
+}

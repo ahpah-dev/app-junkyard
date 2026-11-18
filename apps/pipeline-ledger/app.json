@@ -1,0 +1,11 @@
+{
+  "id": "pipeline-ledger",
+  "name": "Pipeline Ledger",
+  "category": "Business",
+  "description": "Manage sales opportunities, forecast weighted revenue, and queue the next customer follow-up.",
+  "features": [
+    "Probability-weighted pipeline forecasts",
+    "Stage history and dated account notes",
+    "Open follow-up queue and deal export"
+  ]
+}

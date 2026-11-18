@@ -1,0 +1,11 @@
+{
+  "id": "merkle-desk",
+  "name": "Merkle Desk",
+  "category": "Crypto",
+  "description": "Build SHA-256 Merkle commitments from a list and verify individual inclusion proofs against a trusted root.",
+  "features": [
+    "Build a domain-separated Merkle tree",
+    "Export compact positional inclusion proofs",
+    "Verify independently supplied roots and proofs"
+  ]
+}

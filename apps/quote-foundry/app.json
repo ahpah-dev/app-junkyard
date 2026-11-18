@@ -1,0 +1,11 @@
+{
+  "id": "quote-foundry",
+  "name": "Quote Foundry",
+  "category": "Business",
+  "description": "Build client estimates from itemized services, apply discounts and tax, and export a customer-ready quotation.",
+  "features": [
+    "Editable line items and rounded USD totals",
+    "Draft, sent and accepted estimate tracking",
+    "Individual quote documents and a CSV register"
+  ]
+}

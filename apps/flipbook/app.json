@@ -1,0 +1,11 @@
+{
+  "id": "flipbook",
+  "name": "Flipbook",
+  "category": "Games",
+  "description": "Animate pixel sprites with onion skinning, frame reordering, and a packed PNG atlas.",
+  "features": [
+    "Paint independent sixteen-pixel frames with optional onion skin",
+    "Duplicate, reorder, and loop frames at 1–24 fps",
+    "Transparent sprite sheet, frame rectangles, and editable project export"
+  ]
+}

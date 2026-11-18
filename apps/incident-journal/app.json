@@ -1,0 +1,11 @@
+{
+  "id": "incident-journal",
+  "name": "Incident Journal",
+  "category": "Operations",
+  "description": "Coordinate service incidents with timestamped updates, response milestones, and a reusable incident report.",
+  "features": [
+    "Chronological incident timeline and reopening",
+    "Acknowledgment and resolution duration metrics",
+    "Downloadable individual incident reports"
+  ]
+}

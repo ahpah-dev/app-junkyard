@@ -1,0 +1,11 @@
+{
+  "id": "type-poster",
+  "name": "Type Poster",
+  "category": "Design",
+  "description": "Compose a scalable editorial poster with fitted headlines, editable copy, and original geometric layouts.",
+  "features": [
+    "Orbit, Steps and Band compositions",
+    "Headline fitting across three formats and three type families",
+    "Editable vector text and geometry in the exported SVG"
+  ]
+}

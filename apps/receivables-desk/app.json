@@ -1,0 +1,11 @@
+{
+  "id": "receivables-desk",
+  "name": "Receivables Desk",
+  "category": "Business",
+  "description": "Track outstanding invoices, log partial payments, and see which accounts are coming due.",
+  "features": [
+    "Aging by due date and remaining balance",
+    "Dated payment entries with correction controls",
+    "Invoice and payment journal CSV export"
+  ]
+}

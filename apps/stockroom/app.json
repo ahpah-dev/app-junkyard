@@ -1,0 +1,11 @@
+{
+  "id": "stockroom",
+  "name": "Stockroom",
+  "category": "Operations",
+  "description": "Track stock moves and open orders, then size replenishment in supplier pack multiples.",
+  "features": [
+    "Receipts, issues and physical count adjustments",
+    "Open purchase quantities and partial receipts",
+    "Lead-time reorder point and pack rounding"
+  ]
+}

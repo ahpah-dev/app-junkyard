@@ -1,0 +1,11 @@
+{
+  "id": "label-foundry",
+  "name": "Label Foundry",
+  "category": "AI",
+  "description": "Train a local text classifier from labeled examples, score new text, and evaluate a held-out set.",
+  "features": [
+    "Train a multinomial Naive Bayes classifier",
+    "Inspect normalized class scores",
+    "Audit held-out predictions and accuracy"
+  ]
+}

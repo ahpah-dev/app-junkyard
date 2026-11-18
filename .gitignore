@@ -1,0 +1,8 @@
+node_modules/
+.junkyard/
+dist/
+forks/
+.env
+*.sqlite*
+.DS_Store
+Thumbs.db

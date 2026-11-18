@@ -1,0 +1,11 @@
+{
+  "id": "run-compare",
+  "name": "Run Compare",
+  "category": "AI",
+  "description": "Compare two text-model runs against a shared rubric and drill into regressions by case.",
+  "features": [
+    "Pair existing model outputs by case",
+    "Score exact match, substring, and token overlap",
+    "Filter regressions and download per-case results"
+  ]
+}

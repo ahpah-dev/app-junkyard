@@ -1,0 +1,11 @@
+{
+  "id": "retainer-book",
+  "name": "Retainer Book",
+  "category": "Business",
+  "description": "Compare tracked work against monthly client retainers and calculate billable overage.",
+  "features": [
+    "Monthly hour allowances and overage rates",
+    "Dated time entries with reversal",
+    "Utilization, fee estimates and timesheet CSV"
+  ]
+}

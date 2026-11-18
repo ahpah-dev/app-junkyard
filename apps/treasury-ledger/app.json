@@ -1,0 +1,11 @@
+{
+  "id": "treasury-ledger",
+  "name": "Treasury Ledger",
+  "category": "Crypto",
+  "description": "Reconstruct wallet balances from a transfer journal and reconcile them against an independent snapshot.",
+  "features": [
+    "Record deposits, withdrawals and internal transfers",
+    "Replay balances as of a UTC date",
+    "Report differences from supplied wallet snapshots"
+  ]
+}

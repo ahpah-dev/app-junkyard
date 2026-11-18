@@ -1,0 +1,11 @@
+{
+  "id": "vest-calendar",
+  "name": "Vest Calendar",
+  "category": "Crypto",
+  "description": "Audit token grants at a selected date and forecast twelve month-end balances across beneficiaries.",
+  "features": [
+    "Apply cliffs and daily linear accrual",
+    "Preserve token precision through final unlock",
+    "Forecast monthly releases across a grant register"
+  ]
+}

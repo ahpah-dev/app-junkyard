@@ -1,0 +1,17 @@
+{
+  "name": "app-junkyard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A public-domain collection of independently forkable software products.",
+  "type": "module",
+  "license": "Unlicense",
+  "engines": {
+    "node": ">=24.13.0"
+  },
+  "scripts": {
+    "start": "node server/start.js",
+    "build": "node scripts/build.js",
+    "fork": "node scripts/fork.js",
+    "test": "node scripts/test.js"
+  }
+}

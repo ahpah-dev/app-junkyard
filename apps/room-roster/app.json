@@ -1,0 +1,11 @@
+{
+  "id": "room-roster",
+  "name": "Room Roster",
+  "category": "Operations",
+  "description": "Book shared rooms and equipment, catch overlapping reservations, and find the next available working-hours slot.",
+  "features": [
+    "Resource-specific overlap checks",
+    "Next open slot search across 31 days",
+    "Daily booked hours and reservations CSV"
+  ]
+}

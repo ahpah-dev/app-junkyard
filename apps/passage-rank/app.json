@@ -1,0 +1,11 @@
+{
+  "id": "passage-rank",
+  "name": "Passage Rank",
+  "category": "AI",
+  "description": "Search a document collection with BM25 and inspect which query terms drove each result.",
+  "features": [
+    "Rank imported JSONL passages",
+    "Tune saturation and length normalization",
+    "Inspect per-term score contributions"
+  ]
+}

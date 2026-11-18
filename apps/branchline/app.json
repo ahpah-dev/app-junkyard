@@ -1,0 +1,11 @@
+{
+  "id": "branchline",
+  "name": "Branchline",
+  "category": "Games",
+  "description": "Author branching narrative games with gated choices, persistent story flags, and a portable HTML runtime.",
+  "features": [
+    "Scene editor with branching destinations and opening scene selection",
+    "Choices can require and grant flags during a playthrough",
+    "Playable HTML game and editable JSON import/export"
+  ]
+}

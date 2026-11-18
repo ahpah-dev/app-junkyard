@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f6f4ee" />
+    <title>Workspace · App Junkyard</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./workspace.js"></script>
+  </head>
+  <body class="workspace-page">
+    <a class="skip" href="#workspace">Skip to workspace</a>
+    <header class="mast">
+      <div class="container mast-inner">
+        <a class="wordmark" href="./"
+          ><span class="logomark" aria-hidden="true"><i></i><i></i><i></i></span>App Junkyard</a
+        >
+        <div class="app-nav">
+          <a id="guide" hidden>App guide</a
+          ><a id="starter" hidden>Download starter <span aria-hidden="true">↓</span></a
+          ><button type="button" id="backups" hidden>Backups</button>
+        </div>
+      </div>
+    </header>
+    <main class="container work-main">
+      <div class="work-header">
+        <p class="breadcrumb">
+          <a href="./">Collection</a><span aria-hidden="true"> / </span><span id="category"></span>
+        </p>
+        <h1 id="app-name">Loading workspace…</h1>
+        <p id="app-summary"></p>
+      </div>
+      <div id="workspace" class="app-workspace" tabindex="-1"></div>
+    </main>
+    <noscript>Enable JavaScript to use this workspace.</noscript>
+  </body>
+</html>

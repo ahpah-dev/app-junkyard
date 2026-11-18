@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f6f4ee" />
+    <meta
+      name="description"
+      content="A public-domain catalog of runnable software for founders, designers and developers."
+    />
+    <title>App Junkyard</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./catalog.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#catalog">Skip to applications</a>
+    <header class="mast">
+      <div class="container mast-inner">
+        <a class="wordmark" href="./"
+          ><span class="logomark" aria-hidden="true"><i></i><i></i><i></i></span>App Junkyard</a
+        >
+        <a class="source-link" href="https://github.com/ahpah-dev/app-junkyard"
+          >Source on GitHub <span aria-hidden="true">↗</span></a
+        >
+      </div>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="container hero-inner">
+          <div class="hero-copy">
+            <h1>App<br />Junkyard<span>.</span></h1>
+            <p>
+              Open-source software you can run, fork, and turn into a product. Every app is released under the
+              <a href="./LICENSE">Unlicense</a>.
+            </p>
+          </div>
+          <canvas id="yard" width="830" height="410" aria-hidden="true"></canvas>
+        </div>
+      </section>
+      <section class="container collection" id="catalog" aria-labelledby="catalog-title">
+        <div class="collection-head">
+          <h2 id="catalog-title">The collection</h2>
+          <label class="search"
+            ><span aria-hidden="true">⌕</span
+            ><input
+              id="search"
+              type="search"
+              aria-label="Search applications"
+              placeholder="Search applications"
+            /><kbd aria-hidden="true">/</kbd></label
+          >
+        </div>
+        <div class="filter-bar">
+          <nav aria-label="Filter by category" id="filters"></nav>
+          <span class="count" role="status" id="count"></span>
+        </div>
+        <div class="card-grid" id="cards"></div>
+        <noscript>Enable JavaScript to search the catalog and open an application.</noscript>
+      </section>
+    </main>
+    <footer>
+      <div class="container"><span>App Junkyard</span><a href="./LICENSE">The Unlicense ↗</a></div>
+    </footer>
+  </body>
+</html>

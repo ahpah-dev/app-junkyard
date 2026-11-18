@@ -1,0 +1,11 @@
+{
+  "id": "corpus-curator",
+  "name": "Corpus Curator",
+  "category": "AI",
+  "description": "Prepare labeled text datasets with duplicate detection, conflict review and reproducible train/test splits.",
+  "features": [
+    "Find normalized duplicates and label conflicts",
+    "Build repeatable stratified splits",
+    "Export training, test and audit files"
+  ]
+}

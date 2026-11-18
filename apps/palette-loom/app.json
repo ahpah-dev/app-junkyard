@@ -1,0 +1,11 @@
+{
+  "id": "palette-loom",
+  "name": "Palette Loom",
+  "category": "Design",
+  "description": "Build perceptual color ramps and check text contrast before shipping CSS and JSON design tokens.",
+  "features": [
+    "OKLab interpolation with sRGB gamut clipping",
+    "WCAG normal-text contrast check against a chosen ink",
+    "Named token export in CSS and JSON"
+  ]
+}

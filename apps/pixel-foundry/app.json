@@ -1,0 +1,11 @@
+{
+  "id": "pixel-foundry",
+  "name": "Pixel Foundry",
+  "category": "Design",
+  "description": "Draw transparent 24 × 24 sprites with mirrored strokes, flood fill, and scaled PNG export.",
+  "features": [
+    "Pencil, fill and eraser with optional horizontal mirroring",
+    "Fifty undo steps with redo",
+    "Transparent PNG export at five integer scales"
+  ]
+}

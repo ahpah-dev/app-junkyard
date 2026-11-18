@@ -1,0 +1,11 @@
+{
+  "id": "crateworks",
+  "name": "Crateworks",
+  "category": "Games",
+  "description": "Build multi-level crate puzzles, playtest them, and export a standalone game for the browser.",
+  "features": [
+    "Twelve-by-nine tile editor with layered player and crate goals",
+    "Push collisions, undo, restarts and level progression",
+    "Portable project JSON and self-contained playable HTML"
+  ]
+}
