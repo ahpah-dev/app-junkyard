@@ -1,0 +1,11 @@
+{
+  "id": "cap-table",
+  "name": "Cap Table",
+  "category": "Business",
+  "description": "Model equity share classes, option pools, SAFE conversions, and liquidation exit waterfalls.",
+  "features": [
+    "Model equity classes, option pools and SAFE conversions",
+    "Calculate post-round ownership and dilution",
+    "Simulate liquidation preferences and exit waterfalls"
+  ]
+}

@@ -9,6 +9,12 @@ import {
 } from '../../shared/business.js';
 
 const stages = ['Investigating', 'Identified', 'Monitoring', 'Resolved'];
+const slaTargets = {
+  'SEV 1': { ack: 15, resolve: 120 },
+  'SEV 2': { ack: 30, resolve: 240 },
+  'SEV 3': { ack: 120, resolve: 1440 },
+  'SEV 4': { ack: 480, resolve: 2880 },
+};
 const timestamp = (offset = 0) => new Date(Date.now() + offset * 60000).toISOString().slice(0, 16);
 const ms = (stamp) => Date.parse(stamp + ':00Z');
 const validStamp = (stamp) =>
@@ -29,6 +35,58 @@ export function milestones(r) {
     acknowledgment: r.events.length ? elapsed(r.opened, r.events[0].time) : null,
     resolution: state(r) === 'Resolved' ? elapsed(r.opened, r.events.at(-1).time) : null,
   };
+}
+export function slaStatus(r, now = timestamp()) {
+  const targets = slaTargets[r.severity] ?? slaTargets['SEV 3'];
+  const m = milestones(r);
+  const ackMinutes = m.acknowledgment ?? Math.max(0, elapsed(r.opened, now));
+  const resolveMinutes = m.resolution ?? Math.max(0, elapsed(r.opened, now));
+  const ackBreached = ackMinutes > targets.ack;
+  const resolveBreached = resolveMinutes > targets.resolve;
+  return {
+    ackTarget: targets.ack,
+    resolveTarget: targets.resolve,
+    ackMinutes,
+    resolveMinutes,
+    ackBreached,
+    resolveBreached,
+    compliant: !ackBreached && !resolveBreached,
+  };
+}
+export function postmortemMarkdown(r) {
+  const m = milestones(r);
+  const sla = slaStatus(r, r.events.at(-1)?.time ?? r.opened);
+  return [
+    '# Post-Incident Review: ' + r.name,
+    '',
+    '- **Severity:** ' + r.severity,
+    '- **Affected service:** ' + r.service,
+    '- **Status:** ' + state(r),
+    '- **Response lead:** ' + r.owner,
+    '- **Detected:** ' + pretty(r.opened),
+    '',
+    '## Impact Summary',
+    '',
+    r.impact,
+    '',
+    '## SLA & Milestones',
+    '',
+    '| Metric | Actual | SLA Target | Status |',
+    '| --- | --- | --- | --- |',
+    `| Time to acknowledge | ${duration(m.acknowledgment)} | ${duration(sla.ackTarget)} | ${sla.ackBreached ? 'Breached' : 'Within SLA'} |`,
+    `| Time to resolve | ${duration(m.resolution)} | ${duration(sla.resolveTarget)} | ${sla.resolveBreached ? 'Breached' : 'Within SLA'} |`,
+    '',
+    '## Timeline',
+    '',
+    '| Time (UTC) | Stage | Update |',
+    '| --- | --- | --- |',
+    `| ${pretty(r.opened)} | Detected | ${r.impact.replace(/\|/g, '\\|')} |`,
+    ...r.events.map((e) => `| ${pretty(e.time)} | ${e.stage} | ${e.message.replace(/\|/g, '\\|')} |`),
+    '',
+    '## Follow-up Actions',
+    '',
+    '- [ ] Document root cause and preventive safeguards.',
+  ].join('\n');
 }
 export function appendUpdate(r, event, now = timestamp()) {
   demand(
@@ -85,17 +143,20 @@ const seed = () => [
     ],
   },
 ];
-const report = (r) => [
-  r.name,
-  r.severity + ' · ' + r.service + ' · ' + state(r),
-  'Lead · ' + r.owner,
-  'Detected · ' + pretty(r.opened),
-  'Impact · ' + r.impact,
-  'Time to first response · ' + duration(milestones(r).acknowledgment),
-  'Time to resolution · ' + duration(milestones(r).resolution),
-  '',
-  ...r.events.map((e) => pretty(e.time) + ' · ' + e.stage + ' · ' + e.message),
-];
+const report = (r) => {
+  const sla = slaStatus(r);
+  return [
+    r.name,
+    r.severity + ' · ' + r.service + ' · ' + state(r) + ' · SLA ' + (sla.compliant ? 'Compliant' : 'Breached'),
+    'Lead · ' + r.owner,
+    'Detected · ' + pretty(r.opened),
+    'Impact · ' + r.impact,
+    'Time to first response · ' + duration(milestones(r).acknowledgment) + ' (target ' + duration(sla.ackTarget) + ')',
+    'Time to resolution · ' + duration(milestones(r).resolution) + ' (target ' + duration(sla.resolveTarget) + ')',
+    '',
+    ...r.events.map((e) => pretty(e.time) + ' · ' + e.stage + ' · ' + e.message),
+  ];
+};
 const config = {
   overview(rows, open) {
     const active = rows
@@ -149,9 +210,11 @@ const config = {
   },
   metrics: (rows) => {
     const resolved = rows.map((r) => milestones(r).resolution).filter((n) => n !== null);
+    const compliant = rows.filter((r) => slaStatus(r).compliant).length;
     return [
       ['Active incidents', rows.filter((r) => state(r) !== 'Resolved').length],
       ['Awaiting first update', rows.filter((r) => !r.events.length).length],
+      ['SLA compliant', compliant + ' / ' + rows.length],
       [
         'Mean time to resolution',
         resolved.length ? duration(Math.round(resolved.reduce((a, b) => a + b, 0) / resolved.length)) : '—',
@@ -164,7 +227,7 @@ const config = {
     Number(state(a) === 'Resolved') - Number(state(b) === 'Resolved') ||
     a.severity.localeCompare(b.severity) ||
     b.opened.localeCompare(a.opened),
-  detail: (r) => report(r).slice(3).filter(Boolean),
+  detail: (r) => report(r).slice(1).filter(Boolean),
   actions: (r, api) => [
     {
       label: state(r) === 'Resolved' ? 'Reopen incident' : 'Add timeline update',
@@ -181,8 +244,12 @@ const config = {
         ),
     },
     {
-      label: 'Download report',
+      label: 'Download report (.txt)',
       run: () => api.download('incident-' + r.id + '.txt', report(r).join('\n'), 'text/plain;charset=utf-8'),
+    },
+    {
+      label: 'Download Markdown PIR',
+      run: () => api.download('pir-' + r.id + '.md', postmortemMarkdown(r), 'text/markdown;charset=utf-8'),
     },
   ],
   export: (rows) => [

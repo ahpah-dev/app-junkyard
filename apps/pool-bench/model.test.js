@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { replay } from './model.js';
+import { impermanentLoss, maxSwapForSlippage, replay } from './model.js';
 import { units } from '../../shared/lab.js';
 test('constant-product replay retains fees, floors outputs and preserves reserves', () => {
   const r = replay('100', '100', 30, [
@@ -32,4 +32,19 @@ test('spot, fill, and percentage ratios retain twelve significant digits indepen
   assert.equal(third.averagePrice, '0.166666666667');
   const [large] = replay('3', '99999999999999999999', 0, [{ side: 'A', amount: '3' }]).trades;
   assert.equal(large.pretradePrice, '33333333333300000000');
+});
+
+test('computes impermanent loss, LP vs HODL net return, and slippage depth caps', () => {
+  const il = impermanentLoss('100', '100', '50', '200');
+  assert.equal(il.priceRatio, 4);
+  assert.ok(Math.abs(il.ilPct - -20) < 0.01);
+  assert.equal(il.hodlValueInB, 500);
+  assert.equal(il.poolValueInB, 400);
+
+  const zeroFeeHalf = maxSwapForSlippage('1000', '1000', 0, 50);
+  assert.equal(zeroFeeHalf.maxInput, '1000');
+  assert.equal(zeroFeeHalf.expectedOutput, '500');
+
+  const belowFee = maxSwapForSlippage('1000', '1000', 100, 0.5);
+  assert.equal(belowFee.maxInput, '0');
 });

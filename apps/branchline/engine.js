@@ -1,4 +1,4 @@
-import { gamePage } from '../../shared/creative.js';
+import { escapeXML, gamePage } from '../../shared/creative.js';
 const choice = (label, to, set = '', need = '') => ({ label, to, set, need });
 export const initial = {
   version: 1,
@@ -77,6 +77,101 @@ export function links(p) {
       }
   }
   return p.scenes.filter((s) => !visited.has(s.id)).map((s) => s.name || s.id);
+}
+export function auditStory(p) {
+  const required = new Set();
+  const granted = new Set();
+  let choiceCount = 0;
+  const endings = [];
+  for (const s of p.scenes) {
+    choiceCount += s.choices.length;
+    if (!s.choices.length) endings.push(s.name || s.id);
+    for (const c of s.choices) {
+      if (c.need) required.add(c.need);
+      if (c.set) granted.add(c.set);
+    }
+  }
+  const requiredFlags = [...required].sort();
+  const grantedFlags = [...granted].sort();
+  return {
+    sceneCount: p.scenes.length,
+    choiceCount,
+    endings,
+    unreachable: links(p),
+    requiredFlags,
+    grantedFlags,
+    unobtainableFlags: requiredFlags.filter((f) => !granted.has(f)),
+  };
+}
+export function storyMapSVG(p, activeId) {
+  const depth = new Map([[p.start, 0]]);
+  const queue = [p.start];
+  const byId = new Map(p.scenes.map((s) => [s.id, s]));
+  while (queue.length) {
+    const id = queue.shift();
+    const d = depth.get(id);
+    for (const c of byId.get(id)?.choices ?? []) {
+      if (!depth.has(c.to)) {
+        depth.set(c.to, d + 1);
+        queue.push(c.to);
+      }
+    }
+  }
+  const maxReach = Math.max(0, ...depth.values());
+  const layers = new Map();
+  for (const s of p.scenes) {
+    const col = depth.has(s.id) ? depth.get(s.id) : maxReach + 1;
+    const list = layers.get(col) ?? [];
+    list.push(s);
+    layers.set(col, list);
+  }
+  const colW = 190,
+    rowH = 74,
+    boxW = 148,
+    boxH = 48,
+    pad = 24;
+  const maxRows = Math.max(1, ...[...layers.values()].map((l) => l.length));
+  const totalCols = Math.max(1, layers.size);
+  const w = Math.max(360, pad * 2 + (totalCols - 1) * colW + boxW);
+  const h = Math.max(140, pad * 2 + (maxRows - 1) * rowH + boxH);
+  const pos = new Map();
+  const sortedCols = [...layers.keys()].sort((a, b) => a - b);
+  sortedCols.forEach((col, ci) => {
+    const list = layers.get(col);
+    const startY = (h - (list.length - 1) * rowH - boxH) / 2;
+    list.forEach((s, ri) => pos.set(s.id, { x: pad + ci * colW, y: startY + ri * rowH }));
+  });
+  const edges = [];
+  for (const s of p.scenes) {
+    const a = pos.get(s.id);
+    for (const c of s.choices) {
+      const b = pos.get(c.to);
+      if (!a || !b) continue;
+      const x1 = a.x + boxW,
+        y1 = a.y + boxH / 2,
+        x2 = b.x,
+        y2 = b.y + boxH / 2;
+      const back = x2 <= x1;
+      const dPath = back
+        ? `M${a.x + boxW / 2} ${a.y} C${a.x + boxW / 2} ${a.y - 34} ${b.x + boxW / 2} ${b.y - 34} ${b.x + boxW / 2} ${b.y}`
+        : `M${x1} ${y1} C${(x1 + x2) / 2} ${y1} ${(x1 + x2) / 2} ${y2} ${x2} ${y2}`;
+      const color = c.need ? '#b85c2e' : c.set ? '#2f725c' : '#6f7c73';
+      edges.push(`<path d="${dPath}" fill="none" stroke="${color}" stroke-width="2" marker-end="url(#arrow)"/>`);
+    }
+  }
+  const nodes = p.scenes.map((s) => {
+    const { x, y } = pos.get(s.id);
+    const isActive = s.id === activeId;
+    const isStart = s.id === p.start;
+    const isEnd = !s.choices.length;
+    const fill = isActive ? '#253c32' : isEnd ? '#f6e7d4' : '#fffef9';
+    const textFill = isActive ? '#ffffff' : '#232822';
+    const stroke = isActive ? '#e35525' : isStart ? '#2c7662' : '#96a094';
+    const sub = (isStart ? 'Start · ' : isEnd ? 'Ending · ' : '') + s.choices.length + ' choices';
+    const label = (s.name || s.id).slice(0, 18);
+    return `<g data-scene="${escapeXML(s.id)}" style="cursor:pointer"><rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="7" fill="${fill}" stroke="${stroke}" stroke-width="${isActive ? 3 : 1.5}"/><text x="${x + 10}" y="${y + 20}" font-family="sans-serif" font-size="12" font-weight="bold" fill="${textFill}">${escapeXML(label)}</text><text x="${x + 10}" y="${y + 36}" font-family="sans-serif" font-size="10" fill="${isActive ? '#d5e4dc' : '#5e655c'}">${escapeXML(sub)}</text></g>`;
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" style="background:#f3f1e8"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 1L9 5L0 9z" fill="#6f7c73"/></marker></defs>${edges.join('')}${nodes.join('')}</svg>`;
 }
 export function gameRunner(project) {
   const host = document.getElementById('game'),

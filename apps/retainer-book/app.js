@@ -28,6 +28,44 @@ export function logTime(r, e) {
   requiredText(e.task, 'a work description');
   return { ...r, entries: [...r.entries, e] };
 }
+export function paceForecast(r, elapsedDays = 15, totalDays = 30) {
+  demand(elapsedDays > 0 && totalDays >= elapsedDays, 'Elapsed days must be positive and within total days.');
+  const u = usage(r);
+  const projectedMinutes = Math.round((u.used * totalDays) / elapsedDays);
+  const projectedExcess = Math.max(0, projectedMinutes - r.allowance);
+  const projectedExtraFee = Math.round((projectedExcess * r.rate) / 60);
+  const utilizationPct = r.allowance > 0 ? Math.round((u.used * 100) / r.allowance) : 0;
+  return {
+    used: u.used,
+    projectedMinutes,
+    projectedExcess,
+    projectedExtraFee,
+    projectedTotal: r.fee + projectedExtraFee,
+    utilizationPct,
+  };
+}
+export function retainerStatement(r) {
+  const u = usage(r);
+  const effectiveHourly = u.used > 0 ? Math.round((u.estimate * 60) / u.used) : 0;
+  return [
+    'RETAINER TIME & BILLING STATEMENT',
+    'Client: ' + r.client,
+    'Service month: ' + r.month,
+    'Included allowance: ' + hours(r.allowance) + ' (' + money(r.fee) + ' base fee)',
+    'Overage rate: ' + money(r.rate) + '/h',
+    '',
+    'Logged work:',
+    ...(r.entries.length
+      ? r.entries.map((e) => '  ' + e.date + ' · ' + e.task + ' · ' + hours(e.minutes))
+      : ['  No time entries recorded.']),
+    '',
+    'Total tracked: ' + hours(u.used),
+    'Billable overage: ' + hours(u.excess) + ' (' + money(u.extraFee) + ')',
+    'Estimated invoice total: ' + money(u.estimate),
+    ...(u.used > 0 ? ['Effective hourly yield: ' + money(effectiveHourly) + '/h'] : []),
+  ].join('\n');
+}
+
 const status = (r) =>
   usage(r).excess ? 'Over allowance' : usage(r).used === r.allowance ? 'At allowance' : 'Within allowance';
 const blank = () => ({ client: '', month: month(), hours: 10, feeUsd: 800, rateUsd: 100 });
@@ -148,10 +186,17 @@ const config = {
     money(usage(r).estimate),
   ],
   sort: (a, b) => b.month.localeCompare(a.month) || a.client.localeCompare(b.client),
-  detail: (r) => [
-    'Base fee ' + money(r.fee) + ' · Overage rate ' + money(r.rate) + '/h',
-    ...r.entries.map((e) => e.date + ' · ' + e.task + ' · ' + hours(e.minutes)),
-  ],
+  detail: (r) => {
+    const u = usage(r);
+    const elapsed = Math.max(1, Math.min(30, Number(day().slice(8, 10)) || 15));
+    const pace = paceForecast(r, elapsed, 30);
+    const yieldStr = u.used > 0 ? money(Math.round((u.estimate * 60) / u.used)) + '/h' : '—';
+    return [
+      'Base fee ' + money(r.fee) + ' · Overage rate ' + money(r.rate) + '/h · Effective yield ' + yieldStr,
+      'Month-end pace (day ' + elapsed + '/30): projected ' + hours(pace.projectedMinutes) + ' · est. total ' + money(pace.projectedTotal),
+      ...r.entries.map((e) => e.date + ' · ' + e.task + ' · ' + hours(e.minutes)),
+    ];
+  },
   actions(r, api) {
     const actions = [
       {
@@ -166,6 +211,15 @@ const config = {
             ],
             { date: r.month === month() ? day() : r.month + '-01', minutes: 60 },
             logTime,
+          ),
+      },
+      {
+        label: 'Download time statement',
+        run: () =>
+          api.download(
+            'retainer-' + r.client.toLowerCase().replace(/[^a-z0-9-]+/g, '-') + '-' + r.month + '.txt',
+            retainerStatement(r),
+            'text/plain;charset=utf-8',
           ),
       },
     ];

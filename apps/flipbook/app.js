@@ -13,7 +13,8 @@ import {
   select,
   studio,
 } from '../../shared/creative.js';
-import { atlas, initialProject, size, valid } from './frames.js';
+import { animatedSVG, atlas, initialProject, size, transformFrame, valid } from './frames.js';
+
 function drawFrame(c, pixels, scale, x0 = 0, y0 = 0) {
   pixels.forEach((v, i) => {
     if (v) {
@@ -22,6 +23,23 @@ function drawFrame(c, pixels, scale, x0 = 0, y0 = 0) {
     }
   });
 }
+function floodFrame(pixels, start, replacement) {
+  const target = pixels[start];
+  if (target === undefined || target === replacement) return;
+  const pending = [start];
+  pixels[start] = replacement;
+  while (pending.length) {
+    const i = pending.pop(),
+      x = i % size;
+    for (const n of [x > 0 ? i - 1 : -1, x < size - 1 ? i + 1 : -1, i - size, i + size]) {
+      if (n >= 0 && n < pixels.length && pixels[n] === target) {
+        pixels[n] = replacement;
+        pending.push(n);
+      }
+    }
+  }
+}
+
 export function mount(root, ctx) {
   const { tools, stage, status } = studio(root);
   let p = draft(ctx, initialProject(), valid),
@@ -29,7 +47,7 @@ export function mount(root, ctx) {
     playing = false,
     timer,
     ink = '#e9aa58',
-    erase = false,
+    mode = 'ink',
     onion = true;
   const canvas = el('canvas', {
       width: 320,
@@ -40,6 +58,17 @@ export function mount(root, ctx) {
     label = el('p', { className: 'cr-caption' }),
     c = canvas.getContext('2d');
   stage.append(el('div', { className: 'cr-preview' }, canvas), label, timeline, status);
+  const inkInput = input('color', ink, (v) => (ink = v));
+  const toolSelect = select(
+    [
+      ['ink', 'Pencil'],
+      ['erase', 'Eraser'],
+      ['fill', 'Flood fill'],
+      ['pick', 'Eyedropper'],
+    ],
+    mode,
+    (v) => (mode = v),
+  );
   function save() {
     persist(ctx, p, status);
   }
@@ -87,7 +116,19 @@ export function mount(root, ctx) {
   }
   function paint(x, y) {
     if (playing || x < 0 || x >= size || y < 0 || y >= size) return;
-    p.frames[active][y * size + x] = erase ? null : ink;
+    const idx = y * size + x;
+    if (mode === 'pick') {
+      const col = p.frames[active][idx];
+      if (col) {
+        ink = col;
+        inkInput.value = col;
+        mode = 'ink';
+        toolSelect.value = 'ink';
+      }
+      return;
+    }
+    if (mode === 'fill') floodFrame(p.frames[active], idx, ink);
+    else p.frames[active][idx] = mode === 'erase' ? null : ink;
     draw();
   }
   let last = null;
@@ -100,6 +141,7 @@ export function mount(root, ctx) {
       paint(x, y);
     },
     (x, y) => {
+      if (mode === 'fill' || mode === 'pick') return;
       if (x < 0 || x >= size || y < 0 || y >= size) {
         last = null;
         return;
@@ -154,6 +196,12 @@ export function mount(root, ctx) {
     }
     refresh();
   }
+  function applyTransform(kind) {
+    stop();
+    p.frames[active] = transformFrame(p.frames[active], kind);
+    save();
+    draw();
+  }
   const fps = input(
     'number',
     p.fps,
@@ -170,21 +218,8 @@ export function mount(root, ctx) {
   );
   fps.addEventListener('change', () => (fps.value = p.fps));
   tools.append(
-    field(
-      'Ink',
-      input('color', ink, (v) => (ink = v)),
-    ),
-    field(
-      'Tool',
-      select(
-        [
-          ['ink', 'Pencil'],
-          ['erase', 'Eraser'],
-        ],
-        'ink',
-        (v) => (erase = v === 'erase'),
-      ),
-    ),
+    field('Ink', inkInput),
+    field('Tool', toolSelect),
     field(
       'Previous frame overlay',
       select(
@@ -201,6 +236,21 @@ export function mount(root, ctx) {
     ),
     field('Frames per second', fps),
     play,
+    el(
+      'div',
+      { className: 'cr-row' },
+      button('←', () => applyTransform('shiftL')),
+      button('→', () => applyTransform('shiftR')),
+      button('↑', () => applyTransform('shiftU')),
+      button('↓', () => applyTransform('shiftD')),
+    ),
+    el(
+      'div',
+      { className: 'cr-row' },
+      button('Flip H', () => applyTransform('flipH')),
+      button('Flip V', () => applyTransform('flipV')),
+      button('Rotate 90°', () => applyTransform('rotateCW')),
+    ),
     el(
       'div',
       { className: 'cr-row' },
@@ -228,10 +278,11 @@ export function mount(root, ctx) {
     button('Export sprite sheet', () => {
       const a = atlas(p),
         out = el('canvas', { width: a.width, height: a.height }),
-        c = out.getContext('2d');
-      a.frames.forEach((r, i) => drawFrame(c, p.frames[i], 1, r.x, r.y));
+        ctx2 = out.getContext('2d');
+      a.frames.forEach((r, i) => drawFrame(ctx2, p.frames[i], 1, r.x, r.y));
       savePNG(out, 'animation.png');
     }),
+    button('Export animated SVG', () => saveFile('animation.svg', animatedSVG(p, 8), 'image/svg+xml')),
     button('Export atlas metadata', () => saveFile('animation.json', JSON.stringify(atlas(p), null, 2))),
     button('Save editable project', () => saveFile('animation-project.json', JSON.stringify(p))),
     importFile(

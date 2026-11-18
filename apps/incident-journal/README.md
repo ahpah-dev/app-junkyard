@@ -4,7 +4,7 @@ Coordinate service incidents with timestamped updates, response milestones, and 
 
 ## Use the app
 
-Open an incident with detection time, severity, impact and lead. Open the record and append timestamped updates as the response progresses. Resolve it, reopen it if needed, and download the incident report.
+Open an incident with detection time, severity, impact and lead. Open the record to append timestamped updates, monitor severity SLA compliance (SEV 1–4 acknowledgment and resolution targets), resolve or reopen it, and download a plain-text report or Markdown Post-Incident Review (PIR).
 
 ## Data and calculations
 

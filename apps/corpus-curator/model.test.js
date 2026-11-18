@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { curate } from './model.js';
+import { classBalance, curate, nearDuplicates } from './model.js';
 const rows = [
   { text: 'One', label: 'a' },
   { text: 'ONE ', label: 'a' },
@@ -55,4 +55,29 @@ test('redistributes around singletons, caps capacity, and handles no retained ro
   );
   assert.equal(empty.effectivePercentage, 0);
   assert.equal(empty.retained, 0);
+});
+
+test('detects fuzzy near-duplicates and computes class balance entropy', () => {
+  const fuzzy = nearDuplicates([
+    { label: 'req', text: 'Add weekly email digest' },
+    { label: 'bug', text: 'Add weekly digest email now' },
+    { label: 'bug', text: 'Completely unrelated crash report' },
+  ], 0.5);
+  assert.equal(fuzzy.length, 1);
+  assert.equal(fuzzy[0].sameLabel, false);
+  assert.ok(fuzzy[0].similarity >= 0.5);
+
+  const balanced = classBalance([
+    { label: 'a', train: 4, test: 1 },
+    { label: 'b', train: 4, test: 1 },
+  ]);
+  assert.equal(balanced.entropy, 1);
+  assert.equal(balanced.warning, '');
+
+  const skewed = classBalance([
+    { label: 'a', train: 9, test: 1 },
+    { label: 'b', train: 1, test: 0 },
+  ]);
+  assert.ok(skewed.entropy < 0.6);
+  assert.match(skewed.warning, /Imbalance/);
 });

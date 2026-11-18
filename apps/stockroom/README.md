@@ -4,7 +4,7 @@ Track stock moves and open orders, then size replenishment in supplier pack mult
 
 ## Use the app
 
-Create an item and use Record movement → Count stock to enter the opening physical count. Log issues, place purchase orders, and receive them partially or fully. Use the Reorder view to review suggested quantities before placing each order.
+Create an item and use Record movement → Count stock to enter the opening physical count. Inspect runway days, coverage days, and EOQ pack benchmarks, place suggested replenishment orders in one click, or download a consolidated purchase order for all SKUs below their reorder point.
 
 ## Data and calculations
 

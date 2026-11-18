@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { exportGame, follow, initial, links, options, validProject } from './engine.js';
+import { auditStory, exportGame, follow, initial, links, options, storyMapSVG, validProject } from './engine.js';
 test('sample requires the lens and can be completed', () => {
   let s = follow(initial.scenes[0], [], 0);
   assert.deepEqual(s, { id: 'lamp', flags: [] });
@@ -19,4 +19,19 @@ test('dangling links, unreachable scenes and hostile text', () => {
   assert.equal(validProject(p), false);
   p.title = '</script><b>';
   assert.equal(exportGame(p).match(/<\/script>/g).length, 1);
+});
+test('audits endings and flags and renders an escaped interactive SVG story map', () => {
+  const report = auditStory(initial);
+  assert.equal(report.sceneCount, 3);
+  assert.equal(report.choiceCount, 4);
+  assert.deepEqual(report.endings, ['The reply']);
+  assert.deepEqual(report.unobtainableFlags, []);
+
+  const broken = structuredClone(initial);
+  broken.scenes[0].choices[1].need = 'missing_key';
+  assert.deepEqual(auditStory(broken).unobtainableFlags, ['missing_key']);
+
+  const svg = storyMapSVG({ ...initial, scenes: [{ ...initial.scenes[0], name: '<Pier>' }, ...initial.scenes.slice(1)] }, 'deck');
+  assert.match(svg, /&lt;Pier&gt;/);
+  assert.match(svg, /data-scene="lamp"/);
 });

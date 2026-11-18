@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generate, initial, route, walk } from './generator.js';
+import { exportDungeonGame, generate, initial, populateRooms, route, walk } from './generator.js';
 test('seed reproduces geometry and every floor is reachable', () => {
   for (let seed = 0; seed < 20; seed++) {
     const m = generate({ ...initial, seed });
@@ -18,4 +18,15 @@ test('walk cannot cross row boundaries and generator retains wall border', () =>
   assert.deepEqual(walk([0, 0, 1, 1, 0, 0], 3, 2).visited, [2]);
   const m = generate(initial);
   assert.ok(m.tiles.slice(0, m.width).every((n) => !n));
+});
+test('populates deterministic room encounters and exports a playable HTML dungeon crawler', () => {
+  const m = generate(initial);
+  const pop = populateRooms(m, m.end, initial.seed);
+  assert.equal(pop.rooms.length, m.rooms.length);
+  assert.equal(pop.rooms[0].role, 'entrance');
+  assert.ok(pop.rooms.some((r) => r.role === 'exit'));
+  assert.ok(pop.rooms.every((r) => r.dist >= 0));
+  const html = exportDungeonGame(m, m.end, initial.seed);
+  assert.match(html, /Dungeon Expedition/);
+  assert.equal(html.match(/<\/script>/g).length, 1);
 });

@@ -17,6 +17,9 @@ import {
 } from '../../shared/business.js';
 
 const stages = ['Draft', 'Sent', 'Accepted', 'Declined'];
+const esc = (s) =>
+  String(s).replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]);
+
 export function quoteTotals(lines, discount, tax) {
   demand(Array.isArray(lines) && lines.length > 0, 'Add at least one line item.');
   demand(
@@ -38,6 +41,10 @@ export function quoteTotals(lines, discount, tax) {
   const taxDue = Math.round((taxable * tax) / 100);
   return { subtotal, savings, taxDue, total: taxable + taxDue };
 }
+export function convertCurrency(centsAmount, rate) {
+  demand(whole(centsAmount) && Number.isFinite(rate) && rate > 0, 'Provide nonnegative cents and a positive exchange rate.');
+  return Math.round(centsAmount * rate);
+}
 const totals = (r) => quoteTotals(r.lines, r.discount, r.tax);
 const itemString = (l) =>
   l.description + ' · ' + l.quantity + ' × ' + money(l.unitCents) + ' = ' + money(l.unitCents * l.quantity);
@@ -58,6 +65,16 @@ function quoteText(r) {
     '',
     r.terms,
   ].join('\n');
+}
+export function quoteHTML(r) {
+  const t = totals(r);
+  const rows = r.lines
+    .map(
+      (l) =>
+        `<tr><td>${esc(l.description)}</td><td>${l.quantity}</td><td>${money(l.unitCents)}</td><td>${money(l.unitCents * l.quantity)}</td></tr>`,
+    )
+    .join('');
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><title>${esc(r.title)} · Quotation</title><style>body{font:15px/1.5 system-ui,sans-serif;color:#1e2620;max-width:740px;margin:40px auto;padding:0 20px}header{display:flex;justify-content:space-between;border-bottom:2px solid #253c32;padding-bottom:16px;margin-bottom:24px}h1{margin:0;font-size:24px}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{padding:9px;border-bottom:1px solid #d4d8cf;text-align:left}th:last-child,td:last-child{text-align:right}.totals{margin-left:auto;width:280px}.totals div{display:flex;justify-content:space-between;padding:4px 0}.grand{font-weight:700;font-size:18px;border-top:2px solid #253c32;margin-top:6px;padding-top:8px}.sig{margin-top:42px;display:grid;grid-template-columns:1fr 1fr;gap:32px}.sig div{border-top:1px solid #8a9488;padding-top:6px;font-size:13px;color:#556058}@media print{body{margin:16px}}</style><header><div><small>QUOTATION · ${esc(r.stage.toUpperCase())}</small><h1>${esc(r.title)}</h1><p>Prepared for <strong>${esc(r.client)}</strong></p></div><div><p>Valid through<br><strong>${esc(r.validUntil)}</strong></p></div></header><table><thead><tr><th>Item</th><th>Qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotal</span><span>${money(t.subtotal)}</span></div><div><span>Discount (${r.discount}%)</span><span>−${money(t.savings)}</span></div><div><span>Tax (${r.tax}%)</span><span>${money(t.taxDue)}</span></div><div class="grand"><span>Total (USD)</span><span>${money(t.total)}</span></div></div><p><strong>Terms:</strong> ${esc(r.terms || 'Net 30 days.')}</p><div class="sig"><div>Client acceptance signature</div><div>Date</div></div></html>`;
 }
 const blank = () => ({
   title: '',
@@ -181,8 +198,36 @@ const config = {
     ),
   actions: (r, api) => [
     {
-      label: 'Download quote',
+      label: 'Download quote (.txt)',
       run: () => api.download('quotation-' + r.id + '.txt', quoteText(r), 'text/plain;charset=utf-8'),
+    },
+    {
+      label: 'Download HTML proposal',
+      run: () => api.download('proposal-' + r.id + '.html', quoteHTML(r), 'text/html;charset=utf-8'),
+    },
+    ...(r.stage !== 'Accepted'
+      ? [
+          {
+            label: 'Mark Accepted',
+            run: () => {
+              api.update({ ...r, stage: 'Accepted' });
+              api.notify('Quote marked Accepted.');
+            },
+          },
+        ]
+      : []),
+    {
+      label: 'Clone quote',
+      run: () => {
+        api.insert({
+          ...structuredClone(r),
+          id: uid(),
+          title: r.title + ' (Copy)',
+          stage: 'Draft',
+          validUntil: day(30),
+        });
+        api.notify('Cloned quote as Draft.');
+      },
     },
   ],
   export: (rows) => [

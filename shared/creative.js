@@ -40,6 +40,19 @@ export function savePNG(canvas, name) {
     if (blob) saveFile(name, blob);
   }, 'image/png');
 }
+export function downloadSVGAsPNG(svgText, width, height, filename) {
+  const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = el('canvas', { width, height });
+    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+    savePNG(canvas, filename);
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => URL.revokeObjectURL(url);
+  img.src = url;
+}
 export function draft(context, defaults, validate) {
   try {
     const data = context.load(null);

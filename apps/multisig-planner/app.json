@@ -1,0 +1,11 @@
+{
+  "id": "multisig-planner",
+  "name": "Multisig Planner",
+  "category": "Crypto",
+  "description": "Audit M-of-N threshold quorums, timelock maturity, SHA-256 payload hashes, and signer concentration.",
+  "features": [
+    "Audit M-of-N threshold quorum and timelock maturity",
+    "Compute SHA-256 execution payload commitments",
+    "Analyze signer liveness and organization concentration risk"
+  ]
+}

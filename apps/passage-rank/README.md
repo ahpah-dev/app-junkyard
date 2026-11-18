@@ -4,7 +4,7 @@ Search a document collection with BM25 and inspect which query terms drove each 
 
 ## Using the app
 
-Edit the search query or import a UTF-8 JSONL file with one `id`, `title`, and `text` string per record. Run the search, expand a hit to inspect individual term scores, and download the full ranked report.
+Edit the search query or import a UTF-8 JSONL file with one `id`, `title`, and `text` string per record. Run the search to inspect BM25 IDF weights, query coverage, and individual term contributions, click pseudo-relevance feedback expansion suggestions to refine your query, and download CSV or JSON reports.
 
 ## Model and limits
 

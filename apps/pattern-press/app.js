@@ -1,16 +1,42 @@
-import { button, draft, el, field, input, persist, saveFile, select, studio } from '../../shared/creative.js';
-import { initial, patternSVG, valid } from './pattern.js';
+import {
+  button,
+  downloadSVGAsPNG,
+  draft,
+  el,
+  field,
+  input,
+  persist,
+  saveFile,
+  select,
+  studio,
+} from '../../shared/creative.js';
+import { initial, patternMetrics, patternSVG, valid } from './pattern.js';
 export function mount(root, ctx) {
   const { tools, stage, status } = studio(root),
     s = draft(ctx, initial, valid);
+  if (!s.symmetry) s.symmetry = 'random';
+  let repeats = 3;
   const preview = el('div', {
       className: 'cr-preview',
       'aria-label': 'Repeating tile preview',
     }),
     caption = el('p', { className: 'cr-caption' });
   function draw() {
-    preview.innerHTML = patternSVG(s, 3);
-    caption.textContent = '3 × 3 repeats · ' + s.cells * 48 + ' px master tile';
+    preview.innerHTML = patternSVG(s, repeats);
+    const m = patternMetrics(s);
+    caption.textContent =
+      repeats +
+      ' × ' +
+      repeats +
+      ' repeats · ' +
+      m.tilePx +
+      ' px master tile · ' +
+      m.primaryCount +
+      ' primary / ' +
+      m.accentCount +
+      ' accent cells (' +
+      m.symmetry +
+      ')';
     persist(ctx, s, status);
   }
   const change = (k) => (v) => {
@@ -37,9 +63,24 @@ export function mount(root, ctx) {
           ['arc', 'Quarter circles'],
           ['diamond', 'Cut diamonds'],
           ['cross', 'Cross weave'],
+          ['truchet', 'Truchet double-arc'],
+          ['hex', 'Hex lattice'],
+          ['bauhaus', 'Bauhaus blocks'],
         ],
         s.motif,
         change('motif'),
+      ),
+    ),
+    field(
+      'Symmetry',
+      select(
+        [
+          ['random', 'Seeded stochastic'],
+          ['mirror', '4-quadrant mirror'],
+          ['rotational', '4-fold rotational'],
+        ],
+        s.symmetry,
+        change('symmetry'),
       ),
     ),
     field(
@@ -48,6 +89,17 @@ export function mount(root, ctx) {
         [2, 4, 6, 8].map((n) => [n, n + ' × ' + n]),
         s.cells,
         (v) => change('cells')(Number(v)),
+      ),
+    ),
+    field(
+      'Preview grid',
+      select(
+        [2, 3, 4].map((n) => [n, n + ' × ' + n]),
+        repeats,
+        (v) => {
+          repeats = Number(v);
+          draw();
+        },
       ),
     ),
     field('Paper', input('color', s.paper, change('paper'))),
@@ -67,6 +119,7 @@ export function mount(root, ctx) {
       draw();
     }),
     button('Export tile SVG', () => saveFile('pattern.svg', patternSVG(s), 'image/svg+xml')),
+    button('Export PNG (1024px)', () => downloadSVGAsPNG(patternSVG(s, 2), 1024, 1024, 'pattern.png')),
     button('Export CSS', () =>
       saveFile(
         'pattern.css',

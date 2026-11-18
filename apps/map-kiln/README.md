@@ -8,7 +8,7 @@ From the repository root, run `npm start` and open **Map Kiln** in the catalog. 
 
 ## Use the app
 
-Set the grid dimensions, room target, and seed. Roll a new seed to explore. The generator places separated rooms and links each to a previous one. The initial exit is a farthest reachable tile by step count. Click a floor cell to choose a different exit. Export JSON to retain room bounds, markers, grid dimensions, and tile data.
+Set grid dimensions, room target, and seed, then toggle the BFS distance heatmap and inspect populated room encounters (keys, treasures, guardians, shrines). Click a floor cell to move the exit, test your dungeon directly via **Play dungeon**, or export playable HTML, encounter JSON, tile CSV, or preview PNG.
 
 ## Scope
 

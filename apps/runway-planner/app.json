@@ -1,0 +1,11 @@
+{
+  "id": "runway-planner",
+  "name": "Runway Planner",
+  "category": "Business",
+  "description": "Forecast recurring revenue, operating burn, break-even timing, and 18-month cash runway.",
+  "features": [
+    "Forecast recurring revenue growth and operating burn",
+    "Project 18-month cash balances and runway months",
+    "Determine default-alive status and break-even timing"
+  ]
+}

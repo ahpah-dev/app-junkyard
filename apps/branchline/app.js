@@ -10,23 +10,47 @@ import {
   select,
   studio,
 } from '../../shared/creative.js';
-import { initial, exportGame, links, validProject } from './engine.js';
+import { auditStory, initial, exportGame, storyMapSVG, validProject } from './engine.js';
 export function mount(root, ctx) {
   const { tools, stage, status } = studio(root);
   let p = draft(ctx, initial, validProject),
     active = p.start;
-  const editor = el('div', { className: 'cr-stage' }),
+  const mapPreview = el('div', { className: 'cr-preview', 'aria-label': 'Interactive story graph' }),
+    editor = el('div', { className: 'cr-stage' }),
     frame = el('div'),
     audit = el('p', { className: 'cr-caption' });
-  stage.append(editor, audit, status, frame);
+  stage.append(mapPreview, audit, editor, status, frame);
   const scene = () => p.scenes.find((s) => s.id === active),
     options = () => p.scenes.map((s) => [s.id, s.name || s.id]);
+  mapPreview.addEventListener('click', (e) => {
+    const target = e.target.closest('[data-scene]');
+    if (!target) return;
+    const nextId = target.getAttribute('data-scene');
+    if (p.scenes.some((s) => s.id === nextId)) {
+      active = nextId;
+      rebuild();
+    }
+  });
+  function drawMap() {
+    mapPreview.innerHTML = storyMapSVG(p, active);
+  }
   function changed() {
     persist(ctx, p, status);
-    const orphan = links(p);
-    audit.textContent = orphan.length
-      ? 'No incoming path from opening scene: ' + orphan.join(', ')
-      : p.scenes.length + ' scenes · every scene is linked from the opening';
+    const report = auditStory(p);
+    const notes = [];
+    notes.push(
+      report.sceneCount +
+        ' scenes · ' +
+        report.choiceCount +
+        ' choices · ' +
+        report.endings.length +
+        ' ending(s)',
+    );
+    if (report.unreachable.length) notes.push('Unreachable: ' + report.unreachable.join(', '));
+    if (report.unobtainableFlags.length)
+      notes.push('Unobtainable flags: ' + report.unobtainableFlags.join(', '));
+    audit.textContent = notes.join(' · ');
+    drawMap();
   }
   function rebuild() {
     frame.replaceChildren();
@@ -121,6 +145,7 @@ export function mount(root, ctx) {
         frame.replaceChildren(game);
         game.scrollIntoView({ block: 'nearest' });
       }),
+      button('Export story map SVG', () => saveFile('story-map.svg', storyMapSVG(p, active), 'image/svg+xml')),
       button('Export playable HTML', () => saveFile('story.html', exportGame(p), 'text/html')),
       button('Save project JSON', () => saveFile('story-project.json', JSON.stringify(p, null, 2))),
       importFile(
@@ -178,6 +203,7 @@ export function mount(root, ctx) {
         changed();
       }),
     );
+    drawMap();
   }
   rebuild();
   changed();

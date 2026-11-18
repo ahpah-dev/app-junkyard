@@ -1,4 +1,4 @@
-import { check, number, requiredText } from '../../shared/lab.js';
+import { check, number, requiredText, words } from '../../shared/lab.js';
 
 function hash(text) {
   let value = 2166136261;
@@ -6,6 +6,72 @@ function hash(text) {
   return value >>> 0;
 }
 const compareText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const normKey = (text) => text.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+
+export function nearDuplicates(rows, threshold = 0.65) {
+  const cutoff = number(threshold, 'Similarity threshold', 0.1, 1);
+  const unique = [];
+  const seenKeys = new Set();
+  rows.forEach((row, i) => {
+    const text = requiredText(row, 'text', i);
+    const label = requiredText(row, 'label', i);
+    const key = normKey(text);
+    if (seenKeys.has(key)) return;
+    seenKeys.add(key);
+    unique.push({ record: i + 1, text, label, tokens: new Set(words(text)) });
+  });
+  const pairs = [];
+  for (let i = 0; i < unique.length; i++) {
+    for (let j = i + 1; j < unique.length; j++) {
+      const A = unique[i],
+        B = unique[j];
+      if (!A.tokens.size || !B.tokens.size) continue;
+      let shared = 0;
+      for (const token of A.tokens) if (B.tokens.has(token)) shared++;
+      const union = A.tokens.size + B.tokens.size - shared;
+      const similarity = union ? shared / union : 0;
+      if (similarity >= cutoff) {
+        pairs.push({
+          a: A.record,
+          b: B.record,
+          textA: A.text,
+          textB: B.text,
+          labelA: A.label,
+          labelB: B.label,
+          sameLabel: A.label === B.label,
+          similarity: Number(similarity.toFixed(4)),
+        });
+      }
+    }
+  }
+  return pairs.sort((x, y) => y.similarity - x.similarity || x.a - y.a || x.b - y.b);
+}
+
+export function classBalance(breakdown) {
+  const counts = breakdown.map((b) => ({ label: b.label, total: b.train + b.test })).filter((b) => b.total > 0);
+  const sum = counts.reduce((n, b) => n + b.total, 0);
+  if (!sum || !counts.length) {
+    return { entropy: 0, minMaxRatio: 0, minorityLabel: '', majorityLabel: '', warning: 'No retained classes.' };
+  }
+  const sorted = [...counts].sort((a, b) => a.total - b.total || compareText(a.label, b.label));
+  let h = 0;
+  for (const c of counts) {
+    const p = c.total / sum;
+    if (p > 0) h -= p * Math.log2(p);
+  }
+  const entropy = counts.length > 1 ? h / Math.log2(counts.length) : 1;
+  const minMaxRatio = sorted[0].total / sorted.at(-1).total;
+  return {
+    entropy: Number(entropy.toFixed(4)),
+    minMaxRatio: Number(minMaxRatio.toFixed(4)),
+    minorityLabel: sorted[0].label,
+    majorityLabel: sorted.at(-1).label,
+    warning:
+      counts.length > 1 && minMaxRatio < 0.5
+        ? 'Imbalance: ' + sorted[0].label + ' (' + sorted[0].total + ') vs ' + sorted.at(-1).label + ' (' + sorted.at(-1).total + ').'
+        : '',
+  };
+}
 
 function apportion(classes, pct) {
   const groups = [...classes.keys()]
@@ -45,7 +111,7 @@ export function curate(rows, percentage, seed) {
   rows.forEach((row, i) => {
     const text = requiredText(row, 'text', i);
     const label = requiredText(row, 'label', i);
-    const key = text.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+    const key = normKey(text);
     const entries = seen.get(key) ?? [];
     entries.push({ text, label, record: i + 1 });
     seen.set(key, entries);
@@ -88,5 +154,7 @@ export function curate(rows, percentage, seed) {
     test,
     breakdown,
     excluded,
+    balance: classBalance(breakdown),
+    fuzzyPairs: nearDuplicates(rows),
   };
 }

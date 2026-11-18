@@ -1,0 +1,11 @@
+{
+  "id": "token-budget",
+  "name": "Token Budget",
+  "category": "AI",
+  "description": "Estimate subword token counts, pack context windows by priority, and forecast monthly LLM inference costs.",
+  "features": [
+    "Estimate subword token counts and density",
+    "Pack context sections by priority within a budget",
+    "Forecast per-call and monthly LLM inference costs"
+  ]
+}

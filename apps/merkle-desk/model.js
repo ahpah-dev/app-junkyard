@@ -31,6 +31,69 @@ async function hash(prefix, ...parts) {
   return new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', input));
 }
 
+export async function auditTree(leaves) {
+  check(
+    Array.isArray(leaves) && leaves.length >= 1 && leaves.length <= 4096,
+    'Use between 1 and 4,096 leaves.',
+  );
+  const encoded = leaves.map(encodeLeaf);
+  const leafHashes = await Promise.all(encoded.map((leaf) => hash(0, leaf)));
+  let level = leafHashes.slice();
+  let depth = 0;
+  while (level.length > 1) {
+    const parents = [];
+    for (let i = 0; i < level.length; i += 2)
+      parents.push(i + 1 < level.length ? hash(1, level[i], level[i + 1]) : level[i]);
+    level = await Promise.all(parents);
+    depth++;
+  }
+  return {
+    scheme,
+    root: hex(level[0]),
+    leafCount: leaves.length,
+    depth,
+    leaves: leaves.map((leaf, index) => ({
+      index,
+      position: index + 1,
+      leaf,
+      leafHash: hex(leafHashes[index]),
+    })),
+  };
+}
+
+export function diffSnapshots(beforeLeaves, afterLeaves) {
+  check(Array.isArray(beforeLeaves) && Array.isArray(afterLeaves), 'Snapshots must be arrays of leaves.');
+  check(beforeLeaves.length <= 4096 && afterLeaves.length <= 4096, 'Use at most 4,096 leaves per snapshot.');
+  beforeLeaves.forEach(encodeLeaf);
+  afterLeaves.forEach(encodeLeaf);
+  const isAppendOnly =
+    beforeLeaves.length <= afterLeaves.length && beforeLeaves.every((v, i) => afterLeaves[i] === v);
+  const beforeCounts = new Map();
+  for (const leaf of beforeLeaves) beforeCounts.set(leaf, (beforeCounts.get(leaf) ?? 0) + 1);
+  const afterCounts = new Map();
+  for (const leaf of afterLeaves) afterCounts.set(leaf, (afterCounts.get(leaf) ?? 0) + 1);
+  const added = [];
+  const removed = [];
+  let unchanged = 0;
+  for (const [leaf, count] of afterCounts) {
+    const prev = beforeCounts.get(leaf) ?? 0;
+    unchanged += Math.min(prev, count);
+    for (let i = 0; i < count - prev; i++) added.push(leaf);
+  }
+  for (const [leaf, count] of beforeCounts) {
+    const next = afterCounts.get(leaf) ?? 0;
+    for (let i = 0; i < count - next; i++) removed.push(leaf);
+  }
+  return {
+    beforeCount: beforeLeaves.length,
+    afterCount: afterLeaves.length,
+    isAppendOnly,
+    unchanged,
+    added,
+    removed,
+  };
+}
+
 export async function build(leaves, position) {
   check(
     Array.isArray(leaves) && leaves.length >= 1 && leaves.length <= 4096,

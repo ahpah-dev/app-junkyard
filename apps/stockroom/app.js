@@ -38,6 +38,44 @@ export function transact(r, kind, quantity, note, today = day()) {
   const [stock, order] = effects[kind];
   return { ...r, events: [...r.events, { date: today, kind, stock, order, note }] };
 }
+export function daysOfSupply(r) {
+  const p = position(r);
+  const statusStr = p.suggested > 0 ? 'Reorder' : p.onOrder > 0 ? 'On order' : 'Covered';
+  if (r.daily <= 0) return { runwayDays: Infinity, coverageDays: Infinity, status: statusStr };
+  return {
+    runwayDays: Number((p.onHand / r.daily).toFixed(1)),
+    coverageDays: Number(((p.onHand + p.onOrder) / r.daily).toFixed(1)),
+    status: statusStr,
+  };
+}
+export function eoq(daily, orderCostUsd = 40, holdingCostUsd = 2, pack = 1) {
+  if (!Number.isFinite(daily) || daily <= 0) return 0;
+  demand(orderCostUsd > 0 && holdingCostUsd > 0 && pack >= 1, 'Order cost, holding cost, and pack must be positive.');
+  const raw = Math.sqrt((2 * daily * 365 * orderCostUsd) / holdingCostUsd);
+  return Math.max(pack, Math.ceil(raw / pack) * pack);
+}
+export function purchaseOrderSummary(rows, today = day()) {
+  const lines = rows
+    .map((r) => ({ item: r, pos: position(r), recEoq: eoq(r.daily, 40, 2, r.pack) }))
+    .filter((x) => x.pos.suggested > 0)
+    .sort((a, b) => a.item.sku.localeCompare(b.item.sku));
+  const totalUnits = lines.reduce((s, x) => s + x.pos.suggested, 0);
+  return [
+    'CONSOLIDATED REPLENISHMENT PURCHASE ORDER',
+    'Date: ' + today,
+    'Items requiring replenishment: ' + lines.length,
+    '',
+    ...(lines.length
+      ? lines.map(
+          (x) =>
+            `${x.item.sku} · ${x.item.name} | Order ${x.pos.suggested} units (${x.pos.suggested / x.item.pack} × pack of ${x.item.pack}) | On hand ${x.pos.onHand} | Reorder pt ${x.pos.point} | EOQ benchmark ${x.recEoq}`,
+        )
+      : ['All SKUs are currently covered above reorder points.']),
+    '',
+    'Total units to order: ' + totalUnits,
+  ].join('\n');
+}
+
 const status = (r) => {
   const p = position(r);
   return p.suggested > 0 ? 'Reorder' : p.onOrder > 0 ? 'On order' : 'Covered';
@@ -82,11 +120,19 @@ const config = {
       'Stock position against reorder point',
       sorted.map((r) => {
         const p = position(r),
+          sup = daysOfSupply(r),
           available = p.onHand + p.onOrder,
           maximum = Math.max(1, p.target, available);
         return {
           label: r.name,
-          note: p.onHand + ' on hand + ' + p.onOrder + ' ordered · marker at ' + p.point,
+          note:
+            p.onHand +
+            ' on hand + ' +
+            p.onOrder +
+            ' ordered · ' +
+            (Number.isFinite(sup.runwayDays) ? sup.runwayDays + 'd runway' : '∞ runway') +
+            ' · marker at ' +
+            p.point,
           value: p.suggested ? 'Order ' + p.suggested : 'Covered',
           fraction: available / maximum,
           marker: p.point / maximum,
@@ -137,6 +183,7 @@ const config = {
     ['SKUs', rows.length],
     ['Need replenishment', rows.filter((r) => status(r) === 'Reorder').length],
     ['Units on order', rows.reduce((n, r) => n + position(r).onOrder, 0)],
+    ['Suggested order units', rows.reduce((n, r) => n + position(r).suggested, 0)],
   ],
   columns: ['SKU', 'Item', 'On hand', 'On order', 'Reorder point', 'Suggested order'],
   values: (r) => {
@@ -144,41 +191,78 @@ const config = {
     return [r.sku, r.name, p.onHand, p.onOrder, p.point, p.suggested];
   },
   sort: (a, b) => position(b).suggested - position(a).suggested || a.sku.localeCompare(b.sku),
-  detail: (r) => [
-    'Order-up-to target · ' + position(r).target + ' units. Supplier pack · ' + r.pack + ' units.',
-    ...r.events.map(
-      (e) =>
-        e.date +
-        ' · ' +
-        e.kind +
-        ' · Stock Δ ' +
-        e.stock +
-        ' · Open order Δ ' +
-        e.order +
-        (e.note ? ' · ' + e.note : ''),
-    ),
+  detail: (r) => {
+    const p = position(r);
+    const sup = daysOfSupply(r);
+    const recEoq = eoq(r.daily, 40, 2, r.pack);
+    return [
+      'Order-up-to target · ' +
+        p.target +
+        ' units · Supplier pack ' +
+        r.pack +
+        ' · EOQ benchmark ' +
+        recEoq +
+        ' units',
+      'Runway on hand · ' +
+        (Number.isFinite(sup.runwayDays) ? sup.runwayDays + ' days' : '∞') +
+        ' · Coverage with open orders · ' +
+        (Number.isFinite(sup.coverageDays) ? sup.coverageDays + ' days' : '∞'),
+      ...r.events.map(
+        (e) =>
+          e.date +
+          ' · ' +
+          e.kind +
+          ' · Stock Δ ' +
+          e.stock +
+          ' · Open order Δ ' +
+          e.order +
+          (e.note ? ' · ' + e.note : ''),
+      ),
+    ];
+  },
+  toolbarActions: (getRows, _save, api) => [
+    (() => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Download consolidated PO';
+      btn.onclick = () => {
+        api.download('purchase-order-' + day() + '.txt', purchaseOrderSummary(getRows()), 'text/plain;charset=utf-8');
+      };
+      return btn;
+    })(),
   ],
-  actions: (r, api) => [
-    {
-      label: 'Record movement',
-      run: () => {
-        const p = position(r);
-        api.form(
-          'Record inventory movement',
-          [
-            selectField('kind', 'Movement', kinds),
-            integer('quantity', 'Units (physical total for counts)'),
-            textField('note', 'Reference', { optional: true }),
-          ],
-          {
-            kind: p.suggested ? 'Place order' : p.onOrder ? 'Receive order' : 'Count stock',
-            quantity: p.suggested || p.onOrder || p.onHand,
-          },
-          (row, v) => transact(row, v.kind, v.quantity, v.note),
-        );
+  actions: (r, api) => {
+    const p = position(r);
+    const list = [
+      {
+        label: 'Record movement',
+        run: () =>
+          api.form(
+            'Record inventory movement',
+            [
+              selectField('kind', 'Movement', kinds),
+              integer('quantity', 'Units (physical total for counts)'),
+              textField('note', 'Reference', { optional: true }),
+            ],
+            {
+              kind: p.suggested ? 'Place order' : p.onOrder ? 'Receive order' : 'Count stock',
+              quantity: p.suggested || p.onOrder || p.onHand,
+            },
+            (row, v) => transact(row, v.kind, v.quantity, v.note),
+          ),
       },
-    },
-  ],
+    ];
+    if (p.suggested > 0) {
+      list.unshift({
+        label: 'Order suggested (' + p.suggested + ' units)',
+        run: () => {
+          api.update(transact(r, 'Place order', p.suggested, 'Suggested replenishment'));
+          api.notify('Ordered ' + p.suggested + ' units of ' + r.sku + '.');
+        },
+      });
+    }
+    return list;
+  },
   export: (rows) => [
     [
       'SKU',

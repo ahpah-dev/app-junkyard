@@ -4,7 +4,7 @@ Audit token grants at a selected date and forecast twelve month-end balances acr
 
 ## Using the app
 
-Each JSONL grant takes `id`, `beneficiary`, `amount`, `start`, `cliff` and `end`. Use quoted decimal amounts and ISO dates. Select the date to audit and token decimal precision, then review grant-level balances and month-end releases.
+Each JSONL grant takes `id`, `beneficiary`, `amount`, `start`, `cliff`, `end`, and optional `periodDays` (defaulting to `1` for daily linear accrual, or e.g. `30` for monthly cliff/step releases). Use quoted decimal amounts and ISO dates. Select the date to audit and token decimal precision, then review grant-level balances, beneficiary cap tables, month-end releases, and CSV/JSON exports.
 
 ## Model and limits
 

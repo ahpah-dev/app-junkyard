@@ -4,7 +4,7 @@ Run a small delivery team with a visual task board, explicit work limits, and bl
 
 ## Use the app
 
-Create a task, assign points and move it from backlog into the sprint. Select a card to view acceptance notes, log a blocker, or move it between lanes. Clear the blocker before marking the task done.
+Create a task, assign points and move it from backlog into the sprint. Monitor owner workload balance and WIP lane saturation alerts, advance unblocked cards in one click, log blockers, or export CSV/JSON board snapshots. Clear any blocker before marking a task done.
 
 ## Data and calculations
 

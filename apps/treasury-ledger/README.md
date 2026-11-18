@@ -4,7 +4,7 @@ Reconstruct wallet balances from a transfer journal and reconcile them against a
 
 ## Using the app
 
-Use Add an entry or import a JSONL journal. Every entry has `id`, `date`, `asset` and `amount`. A deposit sets `to`, a withdrawal sets `from`, and a transfer sets both. Supply a snapshot with `wallet`, `asset` and `amount` to compare expected balances at the selected date.
+Use Add an entry or import a JSONL journal. Every entry has `id`, `date`, `asset` and `amount`. A deposit sets `to`, a withdrawal sets `from`, and a transfer sets both. Supply a snapshot with `wallet`, `asset` and `amount` to compare expected balances at the selected date, review asset supply concentration and monthly flow summaries, and export balances as CSV or JSON.
 
 ## Model and limits
 

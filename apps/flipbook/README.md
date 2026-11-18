@@ -8,7 +8,7 @@ From the repository root, run `npm start` and open **Flipbook** in the catalog. 
 
 ## Use the app
 
-Click a numbered frame to edit its pixels. Duplicate or insert frames, then move them earlier or later. The overlay shows the previous frame. Play the loop and tune its frame rate. Export the PNG sprite sheet and matching atlas JSON together. Save editable project JSON to continue on another device.
+Click a numbered frame to edit its pixels using Pencil, Eraser, Flood fill, or Eyedropper. Transform frames with shift, flip, or 90° rotation, duplicate or reorder frames, and tune the playback frame rate. Export the PNG sprite sheet with matching atlas JSON, a standalone looping animated SVG, or editable project JSON.
 
 ## Scope
 

@@ -10,7 +10,7 @@ test('the catalog builds every declared app with its entry point, guide and lice
   const output = await mkdtemp(join(tmpdir(), 'junkyard-build-'));
   t.after(() => rm(output, { recursive: true, force: true }));
   const manifest = await build(output);
-  assert.ok(manifest.length >= 24);
+  assert.ok(manifest.length >= 36);
   assert.deepEqual([...new Set(manifest.map((a) => a.category))].sort(), [...categories].sort());
   assert.equal(new Set(manifest.map((a) => a.id)).size, manifest.length);
   assert.deepEqual(JSON.parse(await readFile(join(output, 'catalog.json'), 'utf8')), await discover());

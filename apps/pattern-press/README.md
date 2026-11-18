@@ -8,7 +8,7 @@ From the repository root, run `npm start` and open **Pattern Press** in the cata
 
 ## Use the app
 
-Pick a motif, paper color, and two inks. Set cells per tile and adjust the primary ink share. Change the seed to reproduce a layout or shuffle it to explore variations. Inspect the nine-repeat preview, then export one repeat as SVG or a CSS class.
+Pick from six geometric motifs (quarter circles, cut diamonds, cross weave, Truchet arcs, hex lattice, Bauhaus blocks), symmetry mode (stochastic, 4-quadrant mirror, 4-fold rotational), paper color, and two inks. Set cells per tile and primary ink share, inspect the repeat preview, and export SVG, 1024px PNG, or CSS background rules.
 
 ## Scope
 

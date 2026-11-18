@@ -8,7 +8,7 @@ From the repository root, run `npm start` and open **Palette Loom** in the catal
 
 ## Use the app
 
-Choose start and end colors, step count, and token prefix. Set the preview text color to inspect it against every swatch. The table evaluates a 4.5 to 1 threshold using the unrounded ratio. Export CSS custom properties or the JSON map.
+Choose start and end colors, step count, and token prefix. Set the preview text color and optional color-vision deficiency simulator (protanopia, deuteranopia, tritanopia) to inspect WCAG AAA/AA/AA-Large grades and accessible ramp pairings. Export CSS custom properties, JSON maps, W3C Design Tokens, or an SVG swatch card.
 
 ## Scope
 

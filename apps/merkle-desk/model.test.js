@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { build, decodeLeavesFile, verify } from './model.js';
+import { auditTree, build, decodeLeavesFile, diffSnapshots, verify } from './model.js';
 test('matches domain-separated SHA-256 for a single leaf', async () => {
   const r = await build(['oak'], 1);
   assert.equal(
@@ -43,4 +43,22 @@ test('checks the receipt root and uses an independent count to authenticate the 
   assert.equal(await verify(altered, receipt.root), true);
   assert.equal(await verify(altered, receipt.root, 3), false);
   await assert.rejects(() => verify({ ...receipt, index: 0 }, receipt.root, 3), /direction/);
+});
+
+test('audits full leaf directory and diffs append-only vs mutated snapshots', async () => {
+  const audit = await auditTree(['x', 'y', 'z']);
+  assert.equal(audit.leafCount, 3);
+  assert.equal(audit.depth, 2);
+  assert.equal(audit.leaves.length, 3);
+  assert.equal(audit.leaves[0].position, 1);
+
+  const append = diffSnapshots(['a', 'b'], ['a', 'b', 'c']);
+  assert.equal(append.isAppendOnly, true);
+  assert.deepEqual(append.added, ['c']);
+  assert.deepEqual(append.removed, []);
+
+  const mutated = diffSnapshots(['a', 'b'], ['a', 'd']);
+  assert.equal(mutated.isAppendOnly, false);
+  assert.deepEqual(mutated.added, ['d']);
+  assert.deepEqual(mutated.removed, ['b']);
 });

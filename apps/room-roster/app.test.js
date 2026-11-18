@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBooking, nextSlot } from './app.js';
+import { bookingICS, nextSlot, roomUtilization, validateBooking } from './app.js';
 const booking = {
   id: 'a',
   name: 'Planning',
@@ -29,4 +29,20 @@ test('slot finder fits around reservations and respects closing time', () => {
     start: '09:00',
     end: '10:00',
   });
+});
+test('calculates room utilization percentage and exports valid RFC 5545 .ics invites', () => {
+  const util = roomUtilization(
+    [
+      { ...booking, start: '09:00', end: '13:30' }, // 270 min = 50% of 540
+      { ...booking, id: 'c', state: 'Cancelled' },
+    ],
+    '2026-06-02',
+  );
+  assert.equal(util.length, 1);
+  assert.equal(util[0].bookedMinutes, 270);
+  assert.equal(util[0].utilizationPct, 50);
+  const ics = bookingICS(booking);
+  assert.match(ics, /BEGIN:VCALENDAR/);
+  assert.match(ics, /DTSTART:20260602T090000/);
+  assert.match(ics, /SUMMARY:Planning/);
 });

@@ -12,7 +12,7 @@ import {
   select,
   studio,
 } from '../../shared/creative.js';
-import { generate, initial, route, valid } from './generator.js';
+import { exportDungeonGame, generate, initial, populateRooms, route, valid } from './generator.js';
 export function mount(root, ctx) {
   const { tools, stage, status } = studio(root);
   const saved = draft(
@@ -23,16 +23,20 @@ export function mount(root, ctx) {
   const s = saved.settings;
   let map = generate(s),
     end = map.tiles[saved.end] === 1 ? saved.end : map.end,
-    showPath = true;
+    showPath = true,
+    heatmap = false;
   const canvas = el('canvas', {
       'aria-label': 'Dungeon preview. Select a floor cell to move the exit.',
     }),
-    caption = el('p', { className: 'cr-caption' });
+    caption = el('p', { className: 'cr-caption' }),
+    manifest = el('table'),
+    frame = el('div');
   function save() {
     persist(ctx, { settings: s, end }, status);
   }
   function draw(target = canvas) {
     const path = route(map.parent, map.start, end),
+      pop = populateRooms(map, end, s.seed),
       c = target.getContext('2d'),
       unit = 12;
     target.width = map.width * unit;
@@ -41,7 +45,15 @@ export function mount(root, ctx) {
     c.fillRect(0, 0, target.width, target.height);
     map.tiles.forEach((v, i) => {
       if (v) {
-        c.fillStyle = '#cdc4a4';
+        if (heatmap && pop.distGrid[i] >= 0) {
+          const t = Math.min(1, pop.distGrid[i] / pop.maxDist);
+          const r = Math.round(230 - t * 130),
+            g = Math.round(220 - t * 90),
+            b = Math.round(170 - t * 40);
+          c.fillStyle = `rgb(${r},${g},${b})`;
+        } else {
+          c.fillStyle = '#cdc4a4';
+        }
         c.fillRect((i % map.width) * unit, Math.floor(i / map.width) * unit, unit, unit);
       }
     });
@@ -54,6 +66,13 @@ export function mount(root, ctx) {
       );
       c.stroke();
     }
+    const colors = { key: '#d99826', treasure: '#c56b32', guardian: '#9e3b38', shrine: '#3d8267' };
+    for (const room of pop.rooms) {
+      if (colors[room.role]) {
+        c.fillStyle = colors[room.role];
+        c.fillRect(room.cx * unit + 2, room.cy * unit + 2, unit - 4, unit - 4);
+      }
+    }
     function marker(i, color) {
       c.fillStyle = color;
       c.fillRect((i % map.width) * unit + 1, Math.floor(i / map.width) * unit + 1, unit - 2, unit - 2);
@@ -64,9 +83,26 @@ export function mount(root, ctx) {
       map.rooms.length +
       ' rooms placed · ' +
       (path.length - 1) +
-      ' steps from blue entrance to orange exit. Click a floor cell to move the exit.';
+      ' steps from blue entrance to orange exit · max BFS depth ' +
+      pop.maxDist +
+      '. Click a floor cell to move the exit.';
+    manifest.replaceChildren(
+      el('tr', {}, ...['Room', 'Encounter', 'Center (x, y)', 'Size', 'Steps from start'].map((h) => el('th', { scope: 'col' }, h))),
+      ...pop.rooms.map((r) =>
+        el(
+          'tr',
+          {},
+          el('td', {}, String(r.index + 1)),
+          el('td', {}, r.label),
+          el('td', {}, `${r.cx}, ${r.cy}`),
+          el('td', {}, `${r.w}×${r.h}`),
+          el('td', {}, String(r.dist)),
+        ),
+      ),
+    );
   }
   function rebuild() {
+    frame.replaceChildren();
     map = generate(s);
     end = map.end;
     draw();
@@ -114,8 +150,36 @@ export function mount(root, ctx) {
         },
       ),
     ),
+    field(
+      'Distance heatmap',
+      select(
+        [
+          ['off', 'Standard floor'],
+          ['on', 'BFS distance gradient'],
+        ],
+        'off',
+        (v) => {
+          heatmap = v === 'on';
+          draw();
+        },
+      ),
+    ),
+    button('Play dungeon', () => {
+      const game = el('iframe', {
+        title: 'Dungeon expedition playtest',
+        sandbox: 'allow-scripts',
+        srcdoc: exportDungeonGame(map, end, s.seed),
+      });
+      frame.replaceChildren(game);
+      game.focus();
+      game.scrollIntoView({ block: 'nearest' });
+    }),
+    button('Export playable HTML', () =>
+      saveFile('dungeon-' + s.seed + '.html', exportDungeonGame(map, end, s.seed), 'text/html'),
+    ),
     button('Export level JSON', () => {
       const point = (i) => ({ x: i % map.width, y: Math.floor(i / map.width) });
+      const pop = populateRooms(map, end, s.seed);
       saveFile(
         'level.json',
         JSON.stringify(
@@ -126,7 +190,7 @@ export function mount(root, ctx) {
             width: map.width,
             height: map.height,
             tiles: map.tiles,
-            rooms: map.rooms,
+            rooms: pop.rooms,
             start: point(map.start),
             exit: point(end),
           },
@@ -156,7 +220,7 @@ export function mount(root, ctx) {
     draw();
   }
   canvas.onclick = (e) => setExit(...coords(canvas, e, map.width, map.height));
-  stage.append(el('div', { className: 'cr-preview' }, canvas), caption, status);
+  stage.append(el('div', { className: 'cr-preview' }, canvas), caption, status, frame, manifest);
   keyboardGrid(
     canvas,
     () => [map.width, map.height],

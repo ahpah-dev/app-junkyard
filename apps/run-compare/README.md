@@ -4,7 +4,7 @@ Compare two text-model runs against a shared rubric and drill into regressions b
 
 ## Using the app
 
-Paste or import a JSONL evaluation set. Each case has an `id`, `expected`, `baseline`, and `candidate` string. Optionally add `group` and `rule` (`exact`, `contains`, or `f1`). Adjust the F1 passing threshold and inspect changed cases with the result filter.
+Paste or import a JSONL evaluation set. Each case has an `id`, `expected`, `baseline`, and `candidate` string. Optionally add `group` and `rule` (`exact`, `contains`, `f1`, `jaccard`, or `bleu`). Adjust the passing threshold, review mean score deltas, exact sign-test p-values, and token diffs, and export CSV or JSON reports.
 
 ## Model and limits
 

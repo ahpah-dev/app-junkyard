@@ -1,0 +1,11 @@
+{
+  "id": "bezier-forge",
+  "name": "Bezier Forge",
+  "category": "Design",
+  "description": "Sculpt symmetric Bézier vector icons on a 24×24 snap grid with badge frames and SVG/PNG export.",
+  "features": [
+    "Sculpt symmetric vector icons on a snap grid",
+    "Preview stroke caps, fills and badge geometry",
+    "Export clean SVG, PNG and path data"
+  ]
+}

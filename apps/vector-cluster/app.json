@@ -1,0 +1,11 @@
+{
+  "id": "vector-cluster",
+  "name": "Vector Cluster",
+  "category": "AI",
+  "description": "Embed documents with L2-normalized TF-IDF vectors, cluster via seeded k-means++, and score silhouettes.",
+  "features": [
+    "Build L2-normalized TF-IDF document vectors",
+    "Cluster corpora with seeded k-means++ and cosine distance",
+    "Extract cluster keywords and silhouette scores"
+  ]
+}

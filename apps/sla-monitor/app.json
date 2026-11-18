@@ -1,0 +1,11 @@
+{
+  "id": "sla-monitor",
+  "name": "SLA Monitor",
+  "category": "Operations",
+  "description": "Track 30-day service SLO error budgets, burn rates, release-freeze triggers, and latency thresholds.",
+  "features": [
+    "Track service uptime against 99.9% to 99.99% SLO targets",
+    "Calculate remaining error budgets and burn rates",
+    "Enforce release-freeze thresholds and latency budgets"
+  ]
+}

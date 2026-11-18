@@ -4,7 +4,7 @@ Build SHA-256 Merkle commitments from a list and verify individual inclusion pro
 
 ## Using the app
 
-Enter a list of leaf values, one nonempty string per line, and select a one-based position. Build the tree, inspect the sibling path and download the proof. To verify an external proof, paste its JSON into the verifier and enter a root obtained independently. To verify the claimed position too, enter the publisher's independently trusted leaf count.
+Enter a list of leaf values, one nonempty string per line, and select a one-based position. Build the tree, inspect the sibling path, browse the leaf hash directory, compare snapshots for append-only integrity, and download CSV or JSON proofs. To verify an external proof, paste its JSON into the verifier and enter a root obtained independently. To verify the claimed position too, enter the publisher's independently trusted leaf count.
 
 ## Model and limits
 

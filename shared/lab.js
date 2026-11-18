@@ -237,6 +237,129 @@ export function jsonExport(ctx, filename, result) {
   );
 }
 
+export function csvExport(ctx, filename, headings, rows, label = 'Download CSV') {
+  const escape = (value) => {
+    let text = String(value ?? '');
+    if (/^[\s]*[=+@-]/.test(text) && !/^-?\d+(\.\d+)?$/.test(text)) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+  return button(label, () => {
+    const content = '\uFEFF' + [headings, ...rows].map((row) => row.map(escape).join(',')).join('\r\n');
+    ctx.download(filename, content, 'text/csv;charset=utf-8');
+  });
+}
+
+export function matrixTable(title, labels, matrix) {
+  const head = el(
+    'tr',
+    {},
+    el('th', { scope: 'col' }, 'Actual \\ Pred'),
+    ...labels.map((label) => el('th', { scope: 'col' }, label)),
+  );
+  const body = el(
+    'tbody',
+    {},
+    ...labels.map((label, r) =>
+      el(
+        'tr',
+        {},
+        el('th', { scope: 'row' }, label),
+        ...labels.map((_, c) => {
+          const val = matrix[r]?.[c] ?? 0;
+          const style = r === c && val > 0 ? { background: '#d7e9dc', fontWeight: 700 } : {};
+          return el('td', { style }, String(val));
+        }),
+      ),
+    ),
+  );
+  return el(
+    'figure',
+    { style: { margin: 0, padding: '16px', background: '#eff2e9', borderRadius: '6px' } },
+    el('figcaption', { style: { fontWeight: 650, marginBottom: '10px' } }, title),
+    el('div', { style: { overflowX: 'auto', maxWidth: '100%' } }, el('table', {}, el('thead', {}, head), body)),
+  );
+}
+
+export function multiLineChart(title, series) {
+  const validSeries = (series || []).filter((s) => s.points?.length);
+  const allPoints = validSeries.flatMap((s) => s.points);
+  if (!allPoints.length) return el('p', { className: 'muted' }, 'No chart data.');
+  const width = 560,
+    height = 160;
+  const canvas = el('canvas', {
+    width: width * 2,
+    height: height * 2,
+    role: 'img',
+    'aria-label': title,
+    style: { width: '100%', height: 'auto', display: 'block', marginTop: '10px' },
+  });
+  const plot = canvas.getContext('2d');
+  const high = Math.max(...allPoints.map((p) => p.value));
+  const low = Math.min(...allPoints.map((p) => p.value));
+  const span = high - low || 1;
+  const maxLen = Math.max(...validSeries.map((s) => s.points.length));
+  const x = (i) => 12 + (i * (width - 24)) / Math.max(1, maxLen - 1);
+  const y = (value) => (high === low ? height / 2 : 10 + ((high - value) / span) * (height - 20));
+  plot.scale(2, 2);
+  plot.strokeStyle = '#d6d9bd';
+  for (const grid of [10, height / 2, height - 10]) {
+    plot.beginPath();
+    plot.moveTo(0, grid);
+    plot.lineTo(width, grid);
+    plot.stroke();
+  }
+  for (const s of validSeries) {
+    plot.beginPath();
+    s.points.forEach((p, i) => (i ? plot.lineTo(x(i), y(p.value)) : plot.moveTo(x(i), y(p.value))));
+    plot.strokeStyle = s.color || '#38765b';
+    plot.lineWidth = 2.5;
+    plot.lineJoin = 'round';
+    plot.stroke();
+  }
+  const legend = el(
+    'div',
+    { style: { display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '12px', marginTop: '8px' } },
+    ...validSeries.map((s) =>
+      el(
+        'span',
+        { style: { display: 'inline-flex', alignItems: 'center', gap: '5px' } },
+        el('span', {
+          'aria-hidden': 'true',
+          style: { width: '10px', height: '10px', borderRadius: '2px', background: s.color || '#38765b' },
+        }),
+        s.name,
+      ),
+    ),
+  );
+  const firstPts = validSeries[0].points;
+  const labels = el(
+    'div',
+    { style: { display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '12px' } },
+    el('span', {}, firstPts[0].label),
+    el('span', {}, firstPts.at(-1).label),
+  );
+  return el(
+    'figure',
+    { style: { margin: 0, padding: '16px', background: '#f4efdc', borderRadius: '6px' } },
+    el(
+      'figcaption',
+      {},
+      el('strong', {}, title),
+      el(
+        'div',
+        { className: 'muted', style: { fontSize: '12px' } },
+        'Range ' +
+          low.toLocaleString('en-US', { maximumSignificantDigits: 6 }) +
+          ' to ' +
+          high.toLocaleString('en-US', { maximumSignificantDigits: 6 }),
+      ),
+    ),
+    canvas,
+    labels,
+    legend,
+  );
+}
+
 function recordEditor(field, source) {
   const sample = rowsOf(field.value);
   const keys = [...new Set(sample.flatMap((row) => Object.keys(row)))];
@@ -417,6 +540,18 @@ export function lab(root, ctx, spec) {
       }),
     );
   }
+  const presetButtons = (spec.presets ?? []).map((preset) =>
+    button(preset.label, () => {
+      for (const [key, control] of controls) {
+        if (Object.hasOwn(preset.values, key)) {
+          control.value = String(preset.values[key]);
+          control.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+      save();
+      run();
+    }),
+  );
   form.append(
     el(
       'div',
@@ -438,6 +573,7 @@ export function lab(root, ctx, spec) {
         save();
         run();
       }),
+      ...presetButtons,
     ),
     status,
   );

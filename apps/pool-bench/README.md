@@ -4,7 +4,7 @@ Replay a sequence of two-asset swaps against a constant-product liquidity pool a
 
 ## Using the app
 
-Enter the opening reserves and fee in basis points. Enter trades in execution order as JSONL, with `side` equal to `A` or `B` (the asset entering the pool) and `amount` as a quoted decimal string. Run the sequence and inspect the reserve balances after each fill.
+Enter the opening reserves and fee in basis points. Enter trades in execution order as JSONL, with `side` equal to `A` or `B` (the asset entering the pool) and `amount` as a quoted decimal string. Run the sequence to inspect reserve and spot price charts, LP impermanent loss vs. HODL net return, slippage depth caps, and CSV/JSON exports.
 
 ## Model and limits
 

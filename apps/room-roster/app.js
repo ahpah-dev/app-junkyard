@@ -66,6 +66,46 @@ export function nextSlot(r, rows, startDate = day(), earliest = 540) {
   }
   return null;
 }
+export function roomUtilization(rows, targetDate = day()) {
+  const active = rows.filter((r) => r.state === 'Reserved' && r.date === targetDate);
+  const byRoom = new Map();
+  for (const r of active) {
+    const key = roomKey(r.resource);
+    const entry = byRoom.get(key) ?? { resource: r.resource, bookings: 0, bookedMinutes: 0 };
+    const start = Math.max(540, minutes(r.start));
+    const end = Math.min(1080, minutes(r.end));
+    entry.bookings++;
+    entry.bookedMinutes += Math.max(0, end - start);
+    byRoom.set(key, entry);
+  }
+  return [...byRoom.values()]
+    .map((entry) => ({
+      ...entry,
+      utilizationPct: Math.min(100, Math.round((entry.bookedMinutes * 100) / 540)),
+    }))
+    .sort((a, b) => b.utilizationPct - a.utilizationPct || a.resource.localeCompare(b.resource));
+}
+export function bookingICS(r) {
+  const esc = (s) => String(s ?? '').replace(/([,;\\])/g, '\\$1').replace(/\r?\n/g, '\\n');
+  const d = r.date.replace(/-/g, '');
+  const sTime = r.start.replace(':', '') + '00';
+  const eTime = r.end.replace(':', '') + '00';
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//App Junkyard//Room Roster//EN',
+    'BEGIN:VEVENT',
+    'UID:' + esc(r.id || uid()) + '@room-roster.local',
+    'DTSTART:' + d + 'T' + sTime,
+    'DTEND:' + d + 'T' + eTime,
+    'SUMMARY:' + esc(r.name),
+    'LOCATION:' + esc(r.resource),
+    'DESCRIPTION:' + esc('Organizer: ' + r.owner + ' (' + r.state + ')'),
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+}
+
 const blank = () => ({
   name: '',
   resource: '',
@@ -123,6 +163,7 @@ const config = {
     const items = reserved.filter((r) => r.date === date);
     const start = Math.min(540, ...items.map((r) => Math.floor(minutes(r.start) / 60) * 60));
     const end = Math.max(1080, ...items.map((r) => Math.ceil(minutes(r.end) / 60) * 60));
+    const utilMap = new Map(roomUtilization(rows, date).map((u) => [roomKey(u.resource), u.utilizationPct]));
     const panel = el(
       'section',
       { className: 'biz-sheet biz-overview' },
@@ -165,7 +206,8 @@ const config = {
           ),
         );
       }
-      panel.append(el('div', { className: 'rr-line' }, el('strong', {}, name), track));
+      const util = utilMap.get(key) ?? 0;
+      panel.append(el('div', { className: 'rr-line' }, el('strong', {}, name + ' (' + util + '%)'), track));
       panel.append(
         el(
           'div',
@@ -235,6 +277,15 @@ const config = {
           'Reserve slot',
         );
       },
+    },
+    {
+      label: 'Download .ics invite',
+      run: () =>
+        api.download(
+          'booking-' + r.id + '.ics',
+          bookingICS(r),
+          'text/calendar;charset=utf-8',
+        ),
     },
   ],
   export: (rows) => [

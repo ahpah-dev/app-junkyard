@@ -8,7 +8,7 @@ From the repository root, run `npm start` and open **Pixel Foundry** in the cata
 
 ## Use the app
 
-Pick an ink color and drag the pencil across the canvas. Turn on mirror mode for symmetrical features. Flood fill replaces connected cells of the same color. Undo and redo retain up to 50 strokes for the current editing session. Choose an output size and export the PNG.
+Pick an ink color or eyedropper and draw with Pencil, Line, Rectangle, Filled Rectangle, Ellipse, or Flood fill. Enable horizontal or 4-way symmetry, nudge, flip, or rotate 90°, undo/redo up to 50 strokes, and export transparent PNG, crisp SVG, or JSON projects.
 
 ## Scope
 

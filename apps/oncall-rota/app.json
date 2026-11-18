@@ -1,0 +1,11 @@
+{
+  "id": "oncall-rota",
+  "name": "Oncall Rota",
+  "category": "Operations",
+  "description": "Schedule primary and secondary on-call rotations, prevent double-booking, and export iCalendar feeds.",
+  "features": [
+    "Schedule primary and secondary responder rotations",
+    "Prevent double-booking and audit coverage gaps",
+    "Track responder load balance and export iCalendar feeds"
+  ]
+}

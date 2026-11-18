@@ -4,7 +4,7 @@ Train a local text classifier from labeled examples, score new text, and evaluat
 
 ## Using the app
 
-Provide training records as JSONL with `label` and `text`. Supply an optional independent evaluation set in the same format. Train and classify to inspect the distribution and held-out predictions. Download the report for comparison with a later run.
+Provide training records as JSONL with `label` and `text`, select unigram or bigram token features, and supply an optional independent evaluation set. Train and classify to inspect probability distributions, prediction entropy, per-token log-odds, top discriminative class features, held-out confusion matrices, per-class precision/recall/F1, and CSV/JSON reports.
 
 ## Model and limits
 

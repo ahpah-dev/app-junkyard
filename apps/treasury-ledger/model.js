@@ -1,9 +1,8 @@
 import { check, decimal, requiredText, units, utcDay } from '../../shared/lab.js';
 
-export function audit(rows, snapshot, asOf) {
-  const day = utcDay(asOf, 'Report date');
+function parseEvents(rows) {
   const seen = new Set();
-  const events = rows
+  return rows
     .map((r, i) => {
       const id = requiredText(r, 'id', i);
       check(!seen.has(id), 'Duplicate entry ID: ' + id);
@@ -20,9 +19,93 @@ export function audit(rows, snapshot, asOf) {
         (from || to) && from !== to,
         id + ' needs a source or destination, and transfers must change wallets.',
       );
-      return { id, date, asset, amount, from, to, index: i };
+      return { id, date, month: r.date.slice(0, 7), asset, amount, from, to, index: i };
     })
     .sort((a, b) => a.date - b.date || a.index - b.index);
+}
+
+export function flowSummary(rows, asOf) {
+  const day = utcDay(asOf, 'Report date');
+  const events = parseEvents(rows);
+  const balances = new Map();
+  const assets = new Map();
+  const monthly = new Map();
+  const keyOf = (wallet, asset) => JSON.stringify([wallet, asset]);
+
+  function adjust(wallet, asset, delta, id) {
+    const key = keyOf(wallet, asset);
+    const current = balances.get(key) ?? { wallet, asset, amount: 0n };
+    check(current.amount + delta >= 0n, 'Insufficient ' + asset + ' in ' + wallet + ' at entry ' + id + '.');
+    current.amount += delta;
+    balances.set(key, current);
+  }
+
+  for (const event of events) {
+    if (event.date > day) continue;
+    if (event.from) adjust(event.from, event.asset, -event.amount, event.id);
+    if (event.to) adjust(event.to, event.asset, event.amount, event.id);
+
+    const aStat = assets.get(event.asset) ?? { asset: event.asset, minted: 0n, burned: 0n, transferred: 0n };
+    const mKey = JSON.stringify([event.month, event.asset]);
+    const mStat = monthly.get(mKey) ?? {
+      month: event.month,
+      asset: event.asset,
+      minted: 0n,
+      burned: 0n,
+      transferred: 0n,
+    };
+    if (!event.from && event.to) {
+      aStat.minted += event.amount;
+      mStat.minted += event.amount;
+    } else if (event.from && !event.to) {
+      aStat.burned += event.amount;
+      mStat.burned += event.amount;
+    } else {
+      aStat.transferred += event.amount;
+      mStat.transferred += event.amount;
+    }
+    assets.set(event.asset, aStat);
+    monthly.set(mKey, mStat);
+  }
+
+  const assetSummaries = [...assets.values()]
+    .sort((a, b) => a.asset.localeCompare(b.asset))
+    .map((stat) => {
+      const holders = [...balances.values()].filter((b) => b.asset === stat.asset && b.amount > 0n);
+      holders.sort((a, b) => (a.amount > b.amount ? -1 : a.amount < b.amount ? 1 : a.wallet.localeCompare(b.wallet)));
+      const endingSupply = holders.reduce((sum, b) => sum + b.amount, 0n);
+      const top = holders[0];
+      const topWalletSharePct =
+        endingSupply > 0n && top ? Number((10000n * top.amount) / endingSupply) / 100 : 0;
+      return {
+        asset: stat.asset,
+        minted: decimal(stat.minted, 18),
+        burned: decimal(stat.burned, 18),
+        transferred: decimal(stat.transferred, 18),
+        endingSupply: decimal(endingSupply, 18),
+        activeWallets: holders.length,
+        topWallet: top?.wallet ?? '—',
+        topWalletSharePct,
+      };
+    });
+
+  const monthlyFlows = [...monthly.values()]
+    .sort((a, b) => a.month.localeCompare(b.month) || a.asset.localeCompare(b.asset))
+    .map((m) => ({
+      month: m.month,
+      asset: m.asset,
+      inflow: decimal(m.minted, 18),
+      outflow: decimal(m.burned, 18),
+      internal: decimal(m.transferred, 18),
+      net: decimal(m.minted - m.burned, 18),
+    }));
+
+  return { assets: assetSummaries, monthlyFlows };
+}
+
+export function audit(rows, snapshot, asOf) {
+  const day = utcDay(asOf, 'Report date');
+  const events = parseEvents(rows);
   const balances = new Map();
   const keyOf = (wallet, asset) => JSON.stringify([wallet, asset]);
   function adjust(wallet, asset, delta, id) {
@@ -66,5 +149,6 @@ export function audit(rows, snapshot, asOf) {
     balances: accounts,
     reconciliation,
     matched: reconciliation.filter((r) => r.difference === '0').length,
+    flows: flowSummary(rows, asOf),
   };
 }

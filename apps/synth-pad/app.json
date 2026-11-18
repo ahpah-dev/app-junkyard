@@ -1,0 +1,11 @@
+{
+  "id": "synth-pad",
+  "name": "Synth Pad",
+  "category": "Games",
+  "description": "Sequence 16-step chiptune loops across four synthesized voices and export PCM WAV audio.",
+  "features": [
+    "Sequence 16-step chiptune loops across four voices",
+    "Shape ADSR envelopes and retro sound effects",
+    "Synthesize and download standard PCM WAV audio"
+  ]
+}

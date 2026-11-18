@@ -4,7 +4,7 @@ Manage sales opportunities, forecast weighted revenue, and queue the next custom
 
 ## Use the app
 
-Create an opportunity with an owner, estimated value and probability. Set its next action and follow-up date. Use the Follow-up due filter for outreach, log the conversation, then move the deal through its stages in Edit.
+Create an opportunity with an owner, estimated value and probability. Set its next action and follow-up date. Inspect the stage and monthly close forecast charts, check overall win rate, use the Follow-up due filter for outreach, log conversations, or advance stages in one click. Export CSV or JSON snapshots anytime.
 
 ## Data and calculations
 

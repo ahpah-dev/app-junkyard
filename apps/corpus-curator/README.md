@@ -4,7 +4,7 @@ Prepare labeled text datasets with duplicate detection, conflict review and repr
 
 ## Using the app
 
-Import one `text` and `label` string per JSONL record. Choose a holdout percentage and seed. Review the per-label counts and excluded records, then download the train and test files separately.
+Import one `text` and `label` string per JSONL record. Choose a holdout percentage and seed. Review the per-label counts, normalized Shannon class-balance entropy, fuzzy near-duplicate candidate pairs, and excluded records, then download the train, test, and CSV breakdown files.
 
 ## Model and limits
 

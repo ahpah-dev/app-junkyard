@@ -8,7 +8,7 @@ From the repository root, run `npm start` and open **Type Poster** in the catalo
 
 ## Use the app
 
-Edit the top line, headline, and footer. Add line breaks to direct the headline layout. Choose a format, composition, and type family. Adjust ink, paper, and accent, then export the SVG to edit in a vector tool.
+Edit the top line, headline, and footer, or start from a curated preset. Add line breaks to direct the headline layout. Choose a format, one of six compositions (Orbit, Steps, Band, Swiss Grid, Radial Burst, Constructivist), and a type family. Adjust ink, paper, and accent with live WCAG contrast feedback, then export SVG, 2× PNG, or JSON project files.
 
 ## Scope
 

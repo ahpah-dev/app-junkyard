@@ -1,6 +1,6 @@
 import { el } from '../../shared/ui.js';
-import { button, check, gridTable, jsonExport, lab, metrics } from '../../shared/lab.js';
-import { build, decodeLeavesFile, verify } from './model.js';
+import { button, check, csvExport, gridTable, jsonExport, lab, metrics } from '../../shared/lab.js';
+import { auditTree, build, decodeLeavesFile, diffSnapshots, verify } from './model.js';
 
 function treePreview(receipt) {
   const width = 500,
@@ -129,6 +129,98 @@ function verifier(receipt) {
   );
 }
 
+function snapshotDiffPanel(currentLeaves) {
+  const prior = el('textarea', {
+    id: 'prior-leaves',
+    rows: 4,
+    spellcheck: false,
+    value: currentLeaves.slice(0, Math.max(1, currentLeaves.length - 1)).join('\n'),
+  });
+  const out = el('div', { className: 'stack' });
+  const run = () => {
+    try {
+      const before = prior.value.split(/\r?\n/).filter((line) => line.length);
+      const d = diffSnapshots(before, currentLeaves);
+      out.replaceChildren(
+        metrics([
+          ['Append-only', d.isAppendOnly ? 'Yes' : 'No'],
+          ['Unchanged', d.unchanged],
+          ['Added', d.added.length],
+          ['Removed', d.removed.length],
+        ]),
+        ...(d.added.length || d.removed.length
+          ? [
+              gridTable(
+                ['Change', 'Leaf'],
+                [
+                  ...d.added.slice(0, 20).map((l) => ['+ Added', l]),
+                  ...d.removed.slice(0, 20).map((l) => ['− Removed', l]),
+                ],
+              ),
+            ]
+          : [el('p', { className: 'muted' }, 'Snapshots are identical.')]),
+      );
+    } catch (error) {
+      out.replaceChildren(el('p', { role: 'alert' }, error.message));
+    }
+  };
+  return el(
+    'details',
+    {},
+    el('summary', {}, 'Append-only snapshot diff'),
+    el(
+      'div',
+      { className: 'stack' },
+      el('label', { for: 'prior-leaves' }, 'Prior snapshot leaves · one per line'),
+      prior,
+      button('Compare against current tree', run),
+      out,
+    ),
+  );
+}
+
+function leafDirectory(leaves, activeIndex) {
+  const wrap = el('div', { style: { overflowX: 'auto', maxWidth: '100%' } });
+  const body = el(
+    'tbody',
+    {},
+    ...leaves.slice(0, 50).map((entry) =>
+      el(
+        'tr',
+        {},
+        el('td', {}, String(entry.position)),
+        el('td', {}, entry.leaf),
+        el('td', {}, el('code', {}, entry.leafHash.slice(0, 16) + '…')),
+        el(
+          'td',
+          {},
+          button(entry.index === activeIndex ? 'Selected' : 'Prove', () => {
+            const pos = document.getElementById('lab-position');
+            if (pos) {
+              pos.value = String(entry.position);
+              pos.dispatchEvent(new Event('input', { bubbles: true }));
+              pos.form?.requestSubmit();
+            }
+          }),
+        ),
+      ),
+    ),
+  );
+  wrap.append(
+    el(
+      'table',
+      {},
+      el(
+        'thead',
+        {},
+        el('tr', {}, ...['#', 'Leaf', 'Leaf SHA-256', 'Action'].map((h) => el('th', { scope: 'col' }, h))),
+      ),
+      body,
+    ),
+  );
+  return el('details', {}, el('summary', {}, 'Leaf directory (' + leaves.length + ' leaves)'), wrap);
+}
+
 export function mount(root, ctx) {
   lab(root, ctx, {
     input: 'Snapshot leaves',
@@ -171,16 +263,16 @@ export function mount(root, ctx) {
       });
       return el('div', { className: 'stack' }, el('label', {}, 'Import UTF-8 leaves', picker), message);
     },
-    calculate: (s) => {
+    calculate: async (s) => {
       check(s.leaves.length <= 1500000, 'Use fewer than 1.5 million characters.');
-      return build(
-        s.leaves.split(/\r?\n/).filter((line) => line.length),
-        s.position,
-      );
+      const lines = s.leaves.split(/\r?\n/).filter((line) => line.length);
+      const [receipt, directory] = await Promise.all([build(lines, s.position), auditTree(lines)]);
+      return { ...receipt, depth: directory.depth, directory: directory.leaves, rawLeaves: lines };
     },
     render: (r, context) => [
       metrics([
         ['Leaves', r.leafCount],
+        ['Tree depth', r.depth],
         ['Proof steps', r.proof.length],
       ]),
       treePreview(r),
@@ -196,7 +288,27 @@ export function mount(root, ctx) {
           r.proof.map((p) => [p.side, p.hash]),
         ),
       ),
-      jsonExport(context, 'merkle-receipt.json', r),
+      leafDirectory(r.directory, r.index),
+      snapshotDiffPanel(r.rawLeaves),
+      el(
+        'div',
+        { className: 'actions' },
+        csvExport(
+          context,
+          'merkle-leaves.csv',
+          ['Position', 'Leaf', 'LeafHash'],
+          r.directory.map((d) => [d.position, d.leaf, d.leafHash]),
+          'Download leaf hashes CSV',
+        ),
+        jsonExport(context, 'merkle-receipt.json', {
+          scheme: r.scheme,
+          root: r.root,
+          leaf: r.leaf,
+          index: r.index,
+          leafCount: r.leafCount,
+          proof: r.proof,
+        }),
+      ),
       verifier(r),
     ],
   });

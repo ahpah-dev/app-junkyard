@@ -1,10 +1,11 @@
 import { el } from '../../shared/ui.js';
-import { bars, button, gridTable, jsonExport, jsonLines, lab, metrics, rowsOf } from '../../shared/lab.js';
+import { bars, button, csvExport, gridTable, jsonExport, jsonLines, lab, metrics, rowsOf } from '../../shared/lab.js';
 import { curate } from './model.js';
 
 const sample = jsonLines(
   [
     ['requests', 'Add weekly digest'],
+    ['requests', 'Add a weekly digest email'],
     ['requests', 'Pin a collection'],
     ['requests', 'Rename a notebook'],
     ['bugs', 'Search drops accents'],
@@ -44,6 +45,8 @@ export function mount(root, ctx) {
         ['Training records', r.train.length],
         ['Holdout records', r.test.length],
         ['Excluded', r.input - r.train.length - r.test.length],
+        ['Balance entropy', (r.balance.entropy * 100).toFixed(1) + '%'],
+        ['Fuzzy pairs', r.fuzzyPairs.length],
       ]),
       el(
         'p',
@@ -58,7 +61,8 @@ export function mount(root, ctx) {
           r.test.length +
           ' records (' +
           r.effectivePercentage.toFixed(1) +
-          '%).',
+          '%). ' +
+          (r.balance.warning || 'Min/max class ratio ' + r.balance.minMaxRatio.toFixed(2) + '.'),
       ),
       bars(
         'Disposition of source records',
@@ -78,9 +82,27 @@ export function mount(root, ctx) {
         })),
       ),
       gridTable(
-        ['Label', 'Training', 'Holdout'],
-        r.breakdown.map((b) => [b.label, b.train, b.test]),
+        ['Label', 'Training', 'Holdout', 'Total', 'Share'],
+        r.breakdown.map((b) => {
+          const total = b.train + b.test;
+          const share = r.retained ? ((100 * total) / r.retained).toFixed(1) + '%' : '0%';
+          return [b.label, b.train, b.test, total, share];
+        }),
       ),
+      ...(r.fuzzyPairs.length
+        ? [
+            el('h4', {}, 'Fuzzy near-duplicate candidates'),
+            gridTable(
+              ['Records', 'Jaccard', 'Labels', 'Texts'],
+              r.fuzzyPairs.slice(0, 25).map((p) => [
+                '#' + p.a + ' vs #' + p.b,
+                (p.similarity * 100).toFixed(1) + '%',
+                p.sameLabel ? p.labelA + ' (match)' : p.labelA + ' ≠ ' + p.labelB,
+                p.textA + ' | ' + p.textB,
+              ]),
+            ),
+          ]
+        : []),
       el(
         'details',
         {},
@@ -102,16 +124,15 @@ export function mount(root, ctx) {
             ),
           ),
         ),
+        csvExport(
+          context,
+          'corpus-breakdown.csv',
+          ['Label', 'Training', 'Holdout', 'Total'],
+          r.breakdown.map((b) => [b.label, b.train, b.test, b.train + b.test]),
+          'Download breakdown CSV',
+        ),
+        jsonExport(context, 'corpus-audit.json', r),
       ),
-      jsonExport(context, 'corpus-audit.json', {
-        seed: r.seed,
-        percentage: r.percentage,
-        requestedHoldout: r.requestedHoldout,
-        effectivePercentage: r.effectivePercentage,
-        retained: r.retained,
-        breakdown: r.breakdown,
-        excluded: r.excluded,
-      }),
     ],
   });
 }

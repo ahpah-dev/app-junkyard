@@ -1,0 +1,11 @@
+{
+  "id": "type-scale",
+  "name": "Type Scale",
+  "category": "Design",
+  "description": "Generate modular typographic hierarchy scales with fluid CSS clamp() formulas and live viewport preview.",
+  "features": [
+    "Generate modular typographic hierarchy ramps",
+    "Calculate fluid CSS clamp() viewport formulas",
+    "Export CSS custom properties and design tokens"
+  ]
+}

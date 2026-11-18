@@ -4,7 +4,7 @@ Book shared rooms and equipment, catch overlapping reservations, and find the ne
 
 ## Use the app
 
-Create a booking with a resource name, organizer, local date and time. Reuse the same resource name to share a calendar. Open a booking and choose Find open slot to preview and reserve the next gap for the same duration.
+Create a booking with a resource name, organizer, local date and time. View room utilization percentages on the timeline, reuse a resource name to share a calendar, find the next open working-hours slot, or download an `.ics` calendar invite for any reservation.
 
 ## Data and calculations
 

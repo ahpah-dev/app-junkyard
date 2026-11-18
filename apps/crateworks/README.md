@@ -8,7 +8,7 @@ From the repository root, run `npm start` and open **Crateworks** in the catalog
 
 ## Use the app
 
-Select a tile brush and paint the board. Every level needs one player and the same positive number of crates and goals. Add levels to form a campaign. Play the game with arrow keys or on-screen buttons. Push all crates onto goals to advance. Save project JSON for editing or export HTML for players.
+Select a tile brush and paint the board. Every level needs one player and the same positive number of crates and goals. Use **Verify & solve level** to find the shortest optimal move sequence with dead-corner pruning, or **Animate solution** to preview it directly on the board. Add levels to form a campaign, playtest inline, or export standalone HTML and JSON.
 
 ## Scope
 

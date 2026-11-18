@@ -25,6 +25,29 @@ export function forecast(deal) {
       : Math.round((deal.value * deal.confidence) / 100);
 }
 export const dueFollowup = (d, today = day()) => active(d) && d.next <= today;
+
+export function pipelineStats(rows, today = day()) {
+  const won = rows.filter((d) => d.stage === 'Won');
+  const lost = rows.filter((d) => d.stage === 'Lost');
+  const closed = won.length + lost.length;
+  const winRatePct = closed ? Math.round((won.length * 100) / closed) : 0;
+  const wonValue = won.reduce((n, d) => n + d.value, 0);
+  const lostValue = lost.reduce((n, d) => n + d.value, 0);
+  const openDeals = rows.filter(active);
+  const avgDealValue = rows.length ? Math.round(rows.reduce((n, d) => n + d.value, 0) / rows.length) : 0;
+  const monthMap = new Map();
+  for (const d of openDeals) {
+    const month = (d.close || today).slice(0, 7);
+    const entry = monthMap.get(month) ?? { month, face: 0, weighted: 0, count: 0 };
+    entry.face += d.value;
+    entry.weighted += forecast(d);
+    entry.count++;
+    monthMap.set(month, entry);
+  }
+  const closingByMonth = [...monthMap.values()].sort((a, b) => a.month.localeCompare(b.month));
+  return { winRatePct, wonValue, lostValue, avgDealValue, openCount: openDeals.length, closingByMonth };
+}
+
 const blank = () => ({
   name: '',
   account: '',
@@ -90,18 +113,34 @@ const config = {
       };
     });
     const maximum = Math.max(1, ...groups.map((g) => g.weighted));
-    return comparison(
-      'Weighted pipeline by stage',
-      groups.map((g) => ({
-        label: g.label,
-        note: g.count + (g.count === 1 ? ' deal' : ' deals') + ' · ' + money(g.face) + ' face value',
-        fraction: g.weighted / maximum,
-        value: money(g.weighted),
-        run: () => filter(g.label),
-      })),
-      'No active opportunities.',
-      '#776796',
-    );
+    const stats = pipelineStats(rows);
+    const maxMonth = Math.max(1, ...stats.closingByMonth.map((m) => m.weighted));
+    return [
+      comparison(
+        'Weighted pipeline by stage',
+        groups.map((g) => ({
+          label: g.label,
+          note: g.count + (g.count === 1 ? ' deal' : ' deals') + ' · ' + money(g.face) + ' face value',
+          fraction: g.weighted / maximum,
+          value: money(g.weighted),
+          run: () => filter(g.label),
+        })),
+        'No active opportunities.',
+        '#776796',
+      ),
+      comparison(
+        'Weighted close forecast by month',
+        stats.closingByMonth.map((m) => ({
+          label: m.month,
+          note: m.count + (m.count === 1 ? ' deal' : ' deals') + ' · ' + money(m.face) + ' face',
+          fraction: m.weighted / maxMonth,
+          value: money(m.weighted),
+          run: () => filter('All'),
+        })),
+        'No open closing dates.',
+        '#4a695c',
+      ),
+    ];
   },
   id: 'pipeline-ledger',
   singular: 'opportunity',
@@ -152,11 +191,15 @@ const config = {
       history,
     };
   },
-  metrics: (rows) => [
-    ['Open value', money(rows.filter(active).reduce((n, r) => n + r.value, 0))],
-    ['Weighted open value', money(rows.filter(active).reduce((n, r) => n + forecast(r), 0))],
-    ['Follow-ups due', rows.filter((r) => dueFollowup(r)).length],
-  ],
+  metrics: (rows) => {
+    const stats = pipelineStats(rows);
+    return [
+      ['Open value', money(rows.filter(active).reduce((n, r) => n + r.value, 0))],
+      ['Weighted open value', money(rows.filter(active).reduce((n, r) => n + forecast(r), 0))],
+      ['Win rate', stats.winRatePct + '% (' + money(stats.wonValue) + ' won)'],
+      ['Follow-ups due', rows.filter((r) => dueFollowup(r)).length],
+    ];
+  },
   matchesGroup: (r, f) => (f === 'Follow-up due' ? dueFollowup(r) : r.stage === f),
   columns: ['Opportunity', 'Account', 'Stage', 'Follow-up', 'Weighted value'],
   values: (r) => [r.name, r.account, r.stage, active(r) ? r.next : 'Closed', money(forecast(r))],
@@ -167,32 +210,52 @@ const config = {
     'Next action · ' + (r.nextAction || 'Unspecified'),
     ...r.history.map((e) => e.date + ' · ' + e.text),
   ],
-  actions: (r, api) => [
-    {
-      label: 'Log follow-up',
-      run: () =>
-        api.form(
-          'Log customer follow-up',
-          [
-            textField('note', 'Contact note', { type: 'textarea' }),
-            dateField('next', 'Next follow-up'),
-            textField('nextAction', 'Next action'),
-          ],
-          { next: day(7), nextAction: r.nextAction },
-          (row, v) => {
-            requiredText(v.note, 'a contact note');
-            requiredText(v.nextAction, 'a next action');
-            demand(validDate(v.next), 'Choose a valid follow-up date.');
-            return {
-              ...row,
-              next: v.next,
-              nextAction: v.nextAction,
-              history: [...row.history, { date: day(), text: v.note }],
-            };
-          },
-        ),
-    },
-  ],
+  actions: (r, api) => {
+    const list = [
+      {
+        label: 'Log follow-up',
+        run: () =>
+          api.form(
+            'Log customer follow-up',
+            [
+              textField('note', 'Contact note', { type: 'textarea' }),
+              dateField('next', 'Next follow-up'),
+              textField('nextAction', 'Next action'),
+            ],
+            { next: day(7), nextAction: r.nextAction },
+            (row, v) => {
+              requiredText(v.note, 'a contact note');
+              requiredText(v.nextAction, 'a next action');
+              demand(validDate(v.next), 'Choose a valid follow-up date.');
+              return {
+                ...row,
+                next: v.next,
+                nextAction: v.nextAction,
+                history: [...row.history, { date: day(), text: v.note }],
+              };
+            },
+          ),
+      },
+    ];
+    const idx = stages.indexOf(r.stage);
+    if (active(r) && idx < 4) {
+      const nextStage = stages[idx + 1];
+      const nextConf = { Qualified: 30, Proposal: 60, Negotiation: 80, Won: 100 }[nextStage] ?? r.confidence;
+      list.push({
+        label: 'Advance → ' + nextStage,
+        run: () => {
+          api.update({
+            ...r,
+            stage: nextStage,
+            confidence: nextConf,
+            history: [...r.history, { date: day(), text: r.stage + ' → ' + nextStage }],
+          });
+          api.notify('Moved to ' + nextStage + '.');
+        },
+      });
+    }
+    return list;
+  },
   export: (rows) => [
     [
       'Opportunity',

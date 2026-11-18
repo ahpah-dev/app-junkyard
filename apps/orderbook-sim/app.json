@@ -1,0 +1,11 @@
+{
+  "id": "orderbook-sim",
+  "name": "Orderbook Sim",
+  "category": "Crypto",
+  "description": "Simulate a central limit order book with price-time priority matching, depth ladders, and VWAP fills.",
+  "features": [
+    "Match limit and market orders with price-time priority",
+    "Inspect bid-ask spread, mid-price and depth ladders",
+    "Measure VWAP execution and maker-taker fees"
+  ]
+}

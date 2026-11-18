@@ -2,6 +2,7 @@ import { el } from '../../shared/ui.js';
 import {
   bars,
   button,
+  csvExport,
   gridTable,
   jsonExport,
   jsonLines,
@@ -16,6 +17,8 @@ const journal = jsonLines([
   { id: 'E1', date: '2026-06-01', asset: 'DEMO', amount: '5000', to: 'Reserve' },
   { id: 'E2', date: '2026-06-07', asset: 'DEMO', amount: '1250', from: 'Reserve', to: 'Operations' },
   { id: 'E3', date: '2026-06-12', asset: 'DEMO', amount: '100', from: 'Operations' },
+  { id: 'E4', date: '2026-06-20', asset: 'USDC', amount: '120000', to: 'Reserve' },
+  { id: 'E5', date: '2026-06-25', asset: 'USDC', amount: '35000', from: 'Reserve', to: 'Operations' },
 ]);
 const balances = jsonLines([
   { wallet: 'Reserve', asset: 'DEMO', amount: '3750' },
@@ -129,6 +132,7 @@ export function mount(root, ctx) {
       metrics([
         ['Entries posted', r.posted],
         ['Future entries', r.future],
+        ['Tracked assets', r.flows.assets.length],
         ['Snapshot matches', r.matched + ' / ' + r.reconciliation.length],
       ]),
       ...(r.balances.length ? [allocations(r.balances)] : []),
@@ -137,6 +141,31 @@ export function mount(root, ctx) {
         ['Wallet', 'Asset', 'Recorded'],
         r.balances.slice(0, 50).map((b) => [b.wallet, b.asset, b.amount]),
       ),
+      ...(r.flows.assets.length
+        ? [
+            el('h4', {}, 'Asset supply & wallet concentration'),
+            gridTable(
+              ['Asset', 'Deposits', 'Withdrawals', 'Ending supply', 'Active wallets', 'Top holder'],
+              r.flows.assets.map((a) => [
+                a.asset,
+                a.minted,
+                a.burned,
+                a.endingSupply,
+                a.activeWallets,
+                a.topWallet + ' (' + a.topWalletSharePct.toFixed(1) + '%)',
+              ]),
+            ),
+          ]
+        : []),
+      ...(r.flows.monthlyFlows.length
+        ? [
+            el('h4', {}, 'Monthly treasury activity'),
+            gridTable(
+              ['Month', 'Asset', 'Inflow', 'Outflow', 'Internal transfers', 'Net flow'],
+              r.flows.monthlyFlows.map((m) => [m.month, m.asset, m.inflow, m.outflow, m.internal, m.net]),
+            ),
+          ]
+        : []),
       ...(r.reconciliation.length
         ? [
             el('h4', {}, 'Snapshot comparison'),
@@ -149,6 +178,13 @@ export function mount(root, ctx) {
       el(
         'div',
         { className: 'actions' },
+        csvExport(
+          context,
+          'treasury-balances.csv',
+          ['Wallet', 'Asset', 'Amount'],
+          r.balances.map((b) => [b.wallet, b.asset, b.amount]),
+          'Download balances CSV',
+        ),
         jsonExport(context, 'treasury-statement.json', r),
         button('Download journal', () =>
           context.download('treasury-journal.jsonl', data.journal.trim() + '\n', 'application/x-ndjson'),

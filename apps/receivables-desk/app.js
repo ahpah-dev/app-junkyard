@@ -35,6 +35,49 @@ export function postPayment(invoice, payment, today = day()) {
   );
   return { ...invoice, payments: [...invoice.payments, payment] };
 }
+export function lateFee(invoice, annualRatePct = 18, today = day()) {
+  demand(Number.isFinite(annualRatePct) && annualRatePct >= 0 && annualRatePct <= 100, 'Enter a rate between 0 and 100%.');
+  const open = balance(invoice);
+  if (open <= 0) return 0;
+  const daysLate = Math.max(0, daysBetween(invoice.due, today));
+  return Math.round((open * (annualRatePct / 100) * daysLate) / 365);
+}
+export function portfolioHealth(rows, today = day()) {
+  const billed = rows.reduce((n, r) => n + r.amount, 0);
+  const outstanding = rows.reduce((n, r) => n + balance(r), 0);
+  const collected = billed - outstanding;
+  const overdue = rows.filter((r) => r.due < today).reduce((n, r) => n + balance(r), 0);
+  const collectionRatePct = billed > 0 ? Math.round((collected * 100) / billed) : 0;
+  let weightedSum = 0;
+  for (const r of rows) {
+    const open = balance(r);
+    if (open > 0) weightedSum += open * Math.max(0, daysBetween(r.due, today));
+  }
+  const weightedPastDueDays = outstanding > 0 ? Math.round(weightedSum / outstanding) : 0;
+  return { billed, outstanding, overdue, collected, collectionRatePct, weightedPastDueDays };
+}
+export function customerStatement(invoice, today = day()) {
+  const open = balance(invoice);
+  const fee = lateFee(invoice, 18, today);
+  return [
+    'ACCOUNT STATEMENT',
+    'Invoice: ' + invoice.reference,
+    'Customer: ' + invoice.client,
+    'Statement date: ' + today,
+    'Issued: ' + invoice.issued + ' · Due: ' + invoice.due,
+    'Status: ' + aging(invoice, today),
+    '',
+    'Original amount: ' + money(invoice.amount),
+    ...invoice.payments.map(
+      (p) => 'Payment (' + p.date + '): -' + money(p.cents) + (p.note ? ' [' + p.note + ']' : ''),
+    ),
+    '',
+    'Open balance: ' + money(open),
+    'Est. late interest (18% APR): ' + money(fee),
+    'Total with late fee: ' + money(open + fee),
+  ].join('\n');
+}
+
 const groups = ['Current', '1–30 days late', '31–60 days late', '61+ days late', 'Paid'];
 const blank = () => ({ reference: '', client: '', issued: day(), due: day(30), value: 0 });
 const seed = () => [
@@ -135,16 +178,20 @@ const config = {
     );
     return updated;
   },
-  metrics: (rows) => [
-    ['Outstanding', money(rows.reduce((n, r) => n + balance(r), 0))],
-    ['Overdue', money(rows.filter((r) => r.due < day()).reduce((n, r) => n + balance(r), 0))],
-    ['Collected', money(rows.reduce((n, r) => n + r.amount - balance(r), 0))],
-  ],
+  metrics: (rows) => {
+    const h = portfolioHealth(rows);
+    return [
+      ['Outstanding', money(h.outstanding)],
+      ['Overdue', money(h.overdue)],
+      ['Collected', money(h.collected) + ' (' + h.collectionRatePct + '%)'],
+      ['Weighted past due', h.weightedPastDueDays + ' days'],
+    ];
+  },
   columns: ['Invoice', 'Customer', 'Due', 'Aging', 'Open balance'],
   values: (r) => [r.reference, r.client, r.due, aging(r), money(balance(r))],
   sort: (a, b) => a.due.localeCompare(b.due),
   detail: (r) => [
-    'Issued ' + r.issued + ' · Billed ' + money(r.amount),
+    'Issued ' + r.issued + ' · Billed ' + money(r.amount) + ' · Est. late fee (18% APR) ' + money(lateFee(r)),
     ...r.payments.map((p) => p.date + ' · Payment ' + money(p.cents) + (p.note ? ' · ' + p.note : '')),
   ],
   actions(r, api) {
@@ -178,6 +225,15 @@ const config = {
           );
         },
       });
+    actions.push({
+      label: 'Download statement',
+      run: () =>
+        api.download(
+          'statement-' + r.reference.toLowerCase().replace(/[^a-z0-9-]+/g, '-') + '.txt',
+          customerStatement(r),
+          'text/plain;charset=utf-8',
+        ),
+    });
     return actions;
   },
   export: (rows) => [

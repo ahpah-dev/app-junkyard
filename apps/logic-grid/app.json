@@ -1,0 +1,11 @@
+{
+  "id": "logic-grid",
+  "name": "Logic Grid",
+  "category": "Games",
+  "description": "Design 10×10 Nonogram picross puzzles, verify logical deductibility, and export a playable HTML game.",
+  "features": [
+    "Paint nonogram picross puzzles with live clue counts",
+    "Verify logical deductibility without guessing",
+    "Export a standalone playable puzzle game"
+  ]
+}

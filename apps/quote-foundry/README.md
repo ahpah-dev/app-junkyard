@@ -4,7 +4,7 @@ Build client estimates from itemized services, apply discounts and tax, and expo
 
 ## Use the app
 
-Create a quote, enter its recipient and itemized services, then review the total in the register. Open it to download a plain-text customer document. Change its status in Edit as the estimate progresses.
+Create a quote, enter its recipient and itemized services, then review the total in the register. Open it to download a plain-text quotation or styled HTML proposal with signature lines, mark it Accepted, or clone an existing quote into a new draft.
 
 ## Data and calculations
 

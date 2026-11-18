@@ -8,7 +8,7 @@ From the repository root, run `npm start` and open **Branchline** in the catalog
 
 ## Use the app
 
-Edit passages and add choices with destination scenes. A choice may require a flag and grant another when selected. Leave a scene without choices to make it an ending. Play the sample by collecting the lens, returning to the pier, and signaling the boat. Export a single HTML file for players or project JSON for collaborators.
+Edit passages, click nodes in the live SVG story graph to jump between scenes, and add choices with destination scenes and conditional flags. The live audit reports endings, unreachable scenes, and unobtainable flags. Export an SVG story map, standalone HTML game, or project JSON.
 
 ## Scope
 

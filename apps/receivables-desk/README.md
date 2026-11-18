@@ -4,7 +4,7 @@ Track outstanding invoices, log partial payments, and see which accounts are com
 
 ## Use the app
 
-Create an invoice with its issue date, due date and face value. Open a row to record a payment or reverse the most recently entered payment. Filter the register by aging bucket and export the journal for reconciliation.
+Create an invoice with its issue date, due date and face value. Track collection rate and weighted past-due days across the portfolio. Open a row to record a payment, reverse the most recently entered payment, inspect estimated 18% APR late interest, or download an account statement. Filter by aging bucket and export CSV or JSON for reconciliation.
 
 ## Data and calculations
 

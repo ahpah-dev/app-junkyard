@@ -1,5 +1,6 @@
 import { el } from '../../shared/ui.js';
 import {
+  comparison,
   mountWorkbench,
   day,
   uid,
@@ -39,6 +40,40 @@ export function completion(rows) {
     done: planned.filter((r) => r.stage === 'Done').reduce((n, r) => n + r.points, 0),
   };
 }
+export function workloadByOwner(rows) {
+  const map = new Map();
+  for (const r of rows) {
+    const entry = map.get(r.owner) ?? {
+      owner: r.owner,
+      activeTasks: 0,
+      activePoints: 0,
+      donePoints: 0,
+      blockedTasks: 0,
+    };
+    if (r.stage === 'Done') {
+      entry.donePoints += r.points;
+    } else {
+      entry.activeTasks++;
+      entry.activePoints += r.points;
+      if (r.blocker) entry.blockedTasks++;
+    }
+    map.set(r.owner, entry);
+  }
+  return [...map.values()].sort((a, b) => b.activePoints - a.activePoints || a.owner.localeCompare(b.owner));
+}
+export function wipHealth(rows) {
+  return Object.entries(limits).map(([lane, limit]) => {
+    const count = rows.filter((r) => r.stage === lane).length;
+    return {
+      lane,
+      count,
+      limit,
+      ratio: Number((count / limit).toFixed(2)),
+      saturated: count >= limit,
+    };
+  });
+}
+
 const blank = () => ({
   name: '',
   owner: '',
@@ -97,7 +132,31 @@ function overview(rows, open) {
     .sb-lane h3{font-size:.84rem;margin:.15rem 0 .6rem}
     .sb-lane button{display:grid;gap:.4rem;padding:.5rem;background:#fff;color:#19291f;width:100%;text-align:left;height:auto;white-space:normal;overflow-wrap:anywhere;margin:.4rem 0}
   `;
-  return el('div', {}, el('style', {}, style), board);
+  const load = workloadByOwner(rows);
+  const maxPts = Math.max(1, ...load.map((w) => w.activePoints));
+  return [
+    el('div', {}, el('style', {}, style), board),
+    comparison(
+      'Owner workload balance (active points)',
+      load.map((w) => ({
+        label: w.owner,
+        note:
+          w.activeTasks +
+          ' active · ' +
+          w.donePoints +
+          ' pt done' +
+          (w.blockedTasks ? ' · ' + w.blockedTasks + ' blocked' : ''),
+        value: w.activePoints + ' pt',
+        fraction: w.activePoints / maxPts,
+        color: w.blockedTasks ? '#bb572c' : '#3b7373',
+        run: () => {
+          const first = rows.find((r) => r.owner === w.owner && r.stage !== 'Done') ?? rows.find((r) => r.owner === w.owner);
+          if (first) open(first);
+        },
+      })),
+      'No tasks assigned.',
+    ),
+  ];
 }
 const config = {
   id: 'sprint-board',
@@ -116,39 +175,62 @@ const config = {
   record: putTask,
   metrics: (rows) => {
     const p = completion(rows);
+    const health = wipHealth(rows).filter((h) => h.saturated).map((h) => h.lane);
     return [
       ['Committed points', p.planned],
       ['Completed points', p.done],
       ['Completion', p.planned ? Math.round((p.done * 100) / p.planned) + '%' : '—'],
       ['Blocked tasks', rows.filter((r) => r.blocker).length],
+      ['WIP alerts', health.length ? health.join(', ') + ' full' : 'Healthy'],
     ];
   },
   columns: ['Task', 'Owner', 'Stage', 'Points', 'Blocker'],
   values: (r) => [r.name, r.owner, r.stage, r.points, r.blocker || 'Clear'],
   detail: (r) => [r.description || 'No acceptance notes.', ...r.history.map((h) => h.date + ' · ' + h.note)],
-  actions: (r, api, rows) => [
-    {
-      label: 'Move task',
-      run: () =>
-        api.form(
-          'Move task',
-          [selectField('stage', 'Destination', lanes)],
-          { stage: lanes[Math.min(lanes.length - 1, lanes.indexOf(r.stage) + 1)] },
-          (row, v) => putTask({ ...row, ...v }, row, rows),
-          'Move',
-        ),
-    },
-    {
-      label: r.blocker ? 'Update blocker' : 'Flag blocker',
-      run: () =>
-        api.form(
-          'Update blocker',
-          [textField('blocker', 'Blocker · leave empty to clear', { optional: true })],
-          { blocker: r.blocker },
-          (row, v) => putTask({ ...row, ...v }, row, rows),
-        ),
-    },
-  ],
+  actions: (r, api, rows) => {
+    const list = [
+      {
+        label: 'Move task',
+        run: () =>
+          api.form(
+            'Move task',
+            [selectField('stage', 'Destination', lanes)],
+            { stage: lanes[Math.min(lanes.length - 1, lanes.indexOf(r.stage) + 1)] },
+            (row, v) => putTask({ ...row, ...v }, row, rows),
+            'Move',
+          ),
+      },
+      {
+        label: r.blocker ? 'Update blocker' : 'Flag blocker',
+        run: () =>
+          api.form(
+            'Update blocker',
+            [textField('blocker', 'Blocker · leave empty to clear', { optional: true })],
+            { blocker: r.blocker },
+            (row, v) => putTask({ ...row, ...v }, row, rows),
+          ),
+      },
+    ];
+    const nextIdx = lanes.indexOf(r.stage) + 1;
+    if (nextIdx < lanes.length) {
+      const nextLane = lanes[nextIdx];
+      if (!(nextLane === 'Done' && r.blocker)) {
+        list.unshift({
+          label: 'Advance → ' + nextLane,
+          run: () => {
+            try {
+              const updated = putTask({ ...r, stage: nextLane }, r, rows);
+              api.update(updated);
+              api.notify('Moved to ' + nextLane + '.');
+            } catch (error) {
+              api.notify(error.message);
+            }
+          },
+        });
+      }
+    }
+    return list;
+  },
   export: (rows) => [
     ['Task', 'Owner', 'Stage', 'Points', 'Blocker', 'Acceptance notes', 'History'],
     ...rows.map((r) => [

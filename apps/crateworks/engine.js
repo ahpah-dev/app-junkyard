@@ -99,6 +99,56 @@ export function step(s, dx, dy) {
 export function solved(s) {
   return s.boxes.length > 0 && s.boxes.every((box) => s.goals.includes(box));
 }
+export function solveLevel(rows, maxVisited = 20000) {
+  const issue = problem(rows);
+  if (issue) return { solvable: false, reason: issue, moves: '', steps: 0, explored: 0 };
+  const start = begin(rows);
+  if (solved(start)) return { solvable: true, moves: '', steps: 0, explored: 1 };
+  const w = start.width;
+  const h = Math.floor(start.tiles.length / w);
+  const goalSet = new Set(start.goals);
+  const isWall = (x, y) => x < 0 || y < 0 || x >= w || y >= h || start.tiles[y * w + x] === '#';
+  const isDeadCorner = (idx) => {
+    if (goalSet.has(idx)) return false;
+    const x = idx % w,
+      y = Math.floor(idx / w);
+    return (isWall(x - 1, y) || isWall(x + 1, y)) && (isWall(x, y - 1) || isWall(x, y + 1));
+  };
+  const encode = (st) => st.player + ':' + [...st.boxes].sort((a, b) => a - b).join(',');
+  const dirs = [
+    ['U', 0, -1],
+    ['D', 0, 1],
+    ['L', -1, 0],
+    ['R', 1, 0],
+  ];
+  const visited = new Set([encode(start)]);
+  const queue = [{ state: start, path: '' }];
+  let head = 0;
+  while (head < queue.length && visited.size < maxVisited) {
+    const { state, path } = queue[head++];
+    for (const [code, dx, dy] of dirs) {
+      const next = step(state, dx, dy);
+      if (next === state) continue;
+      if (next.boxes.some(isDeadCorner)) continue;
+      if (solved(next)) {
+        const moves = path + code;
+        return { solvable: true, moves, steps: moves.length, explored: visited.size };
+      }
+      const key = encode(next);
+      if (!visited.has(key)) {
+        visited.add(key);
+        queue.push({ state: next, path: path + code });
+      }
+    }
+  }
+  return {
+    solvable: false,
+    reason: visited.size >= maxVisited ? 'Search limit reached.' : 'No solution exists.',
+    moves: '',
+    steps: 0,
+    explored: visited.size,
+  };
+}
 export function drawTiles(canvas, rows) {
   const c = canvas.getContext('2d'),
     w = rows[0].length,

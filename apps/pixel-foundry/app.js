@@ -4,15 +4,17 @@ import {
   el,
   field,
   hexColor,
+  importFile,
   input,
   keyboardGrid,
   paintEvents,
   persist,
+  saveFile,
   savePNG,
   select,
   studio,
 } from '../../shared/creative.js';
-import { flood, line } from './bitmap.js';
+import { ellipse, flip, flood, line, paletteCounts, rect, rotateCW, shift } from './bitmap.js';
 
 const side = 24,
   scale = 20;
@@ -43,18 +45,19 @@ function initial() {
   );
   return sprite;
 }
+const validSprite = (d) =>
+  Array.isArray(d) && d.length === side * side && d.every((x) => x === null || hexColor(x));
+
 export function mount(root, ctx) {
   const { tools, stage, status } = studio(root);
-  let pixels = draft(
-    ctx,
-    initial(),
-    (d) => Array.isArray(d) && d.length === side * side && d.every((x) => x === null || hexColor(x)),
-  );
+  let pixels = draft(ctx, initial(), validSprite);
   let color = '#df6743',
     mode = 'brush',
-    mirror = false,
+    symmetry = 'off',
     outputScale = 8,
     last = null,
+    anchor = null,
+    snapshotBeforeDrag = null,
     before = '';
   const history = [],
     future = [];
@@ -64,7 +67,24 @@ export function mount(root, ctx) {
     'aria-label': '24 by 24 sprite editor',
   });
   const undo = button('Undo', () => travel(history, future)),
-    redo = button('Redo', () => travel(future, history));
+    redo = button('Redo', () => travel(future, history)),
+    paletteSummary = el('p', { className: 'cr-caption' });
+  const colorInput = input('color', color, (v) => (color = v));
+  const toolSelect = select(
+    [
+      ['brush', 'Pencil'],
+      ['erase', 'Eraser'],
+      ['fill', 'Flood fill'],
+      ['line', 'Line'],
+      ['rect', 'Rectangle'],
+      ['rectFill', 'Filled rectangle'],
+      ['circle', 'Ellipse'],
+      ['pick', 'Eyedropper'],
+    ],
+    mode,
+    (v) => (mode = v),
+  );
+
   function refresh() {
     const c = canvas.getContext('2d');
     pixels.forEach((v, i) => {
@@ -75,6 +95,16 @@ export function mount(root, ctx) {
       c.strokeStyle = 'rgba(60,65,57,.10)';
       c.strokeRect(x * scale + 0.5, y * scale + 0.5, scale - 1, scale - 1);
     });
+    const used = paletteCounts(pixels);
+    const filled = used.reduce((s, u) => s + u.count, 0);
+    paletteSummary.textContent =
+      filled +
+      ' / ' +
+      side * side +
+      ' painted pixels · ' +
+      used.length +
+      ' active color' +
+      (used.length === 1 ? '' : 's');
     undo.disabled = !history.length;
     redo.disabled = !future.length;
   }
@@ -93,22 +123,62 @@ export function mount(root, ctx) {
     persist(ctx, pixels, status);
     refresh();
   }
-  function paint(x, y) {
+  function applySymmetry(px, py, fn) {
+    fn(px, py);
+    if (symmetry === 'horiz' || symmetry === 'quad') fn(side - px - 1, py);
+    if (symmetry === 'quad') {
+      fn(px, side - py - 1);
+      fn(side - px - 1, side - py - 1);
+    }
+  }
+  function setPixel(px, py) {
+    if (px < 0 || px >= side || py < 0 || py >= side) return;
+    pixels[py * side + px] = mode === 'erase' ? null : color;
+  }
+  function paint(x, y, isDrag = false) {
     if (x < 0 || x >= side || y < 0 || y >= side) return;
-    const apply = (px, py) => {
-      const index = py * side + px;
-      if (mode === 'fill') flood(pixels, side, index, color);
-      else pixels[index] = mode === 'erase' ? null : color;
-    };
-    const plot = (px, py) => {
-      apply(px, py);
-      if (mirror) apply(side - px - 1, py);
-    };
-    if (last && mode !== 'fill') line(...last, x, y, plot);
+    if (mode === 'pick') {
+      const picked = pixels[y * side + x];
+      if (picked) {
+        color = picked;
+        colorInput.value = picked;
+        mode = 'brush';
+        toolSelect.value = 'brush';
+      }
+      return;
+    }
+    if (mode === 'fill') {
+      applySymmetry(x, y, (px, py) => flood(pixels, side, py * side + px, color));
+      refresh();
+      return;
+    }
+    if (['line', 'rect', 'rectFill', 'circle'].includes(mode)) {
+      if (!isDrag || !anchor) {
+        anchor = [x, y];
+        snapshotBeforeDrag = pixels.slice();
+      } else {
+        pixels = snapshotBeforeDrag.slice();
+      }
+      const plot = (px, py) => applySymmetry(px, py, setPixel);
+      if (mode === 'line') line(anchor[0], anchor[1], x, y, plot);
+      else if (mode === 'rect') rect(anchor[0], anchor[1], x, y, false, plot);
+      else if (mode === 'rectFill') rect(anchor[0], anchor[1], x, y, true, plot);
+      else ellipse(anchor[0], anchor[1], x, y, false, plot);
+      refresh();
+      return;
+    }
+    const plot = (px, py) => applySymmetry(px, py, setPixel);
+    if (last) line(...last, x, y, plot);
     else plot(x, y);
     last = [x, y];
     refresh();
   }
+  function transform(fn) {
+    before = JSON.stringify(pixels);
+    pixels = fn(pixels);
+    commit();
+  }
+
   paintEvents(
     canvas,
     side,
@@ -116,14 +186,19 @@ export function mount(root, ctx) {
     (x, y) => {
       before = JSON.stringify(pixels);
       last = null;
-      paint(x, y);
+      anchor = null;
+      snapshotBeforeDrag = null;
+      paint(x, y, false);
     },
     (x, y) => {
-      if (mode !== 'fill') paint(x, y);
+      if (mode !== 'fill' && mode !== 'pick') paint(x, y, true);
     },
-    commit,
+    () => {
+      anchor = null;
+      snapshotBeforeDrag = null;
+      commit();
+    },
   );
-  const colorInput = input('color', color, (v) => (color = v));
   const swatches = el('div', { className: 'cr-row' });
   ['#293d40', '#df6743', '#f7c985', '#fff5da', '#749b8b', '#775d83'].forEach((v) => {
     const b = button('', () => {
@@ -136,32 +211,38 @@ export function mount(root, ctx) {
     swatches.append(b);
   });
   tools.append(
-    field(
-      'Tool',
-      select(
-        [
-          ['brush', 'Pencil'],
-          ['erase', 'Eraser'],
-          ['fill', 'Flood fill'],
-        ],
-        mode,
-        (v) => (mode = v),
-      ),
-    ),
+    field('Tool', toolSelect),
     field('Ink', colorInput),
     swatches,
     field(
-      'Mirror across center',
+      'Symmetry',
       select(
         [
           ['off', 'Off'],
-          ['on', 'On'],
+          ['horiz', 'Horizontal mirror'],
+          ['quad', '4-way mirror'],
         ],
-        'off',
-        (v) => (mirror = v === 'on'),
+        symmetry,
+        (v) => (symmetry = v),
       ),
     ),
     el('div', { className: 'cr-row' }, undo, redo),
+    el(
+      'div',
+      { className: 'cr-row' },
+      button('←', () => transform((p) => shift(p, side, -1, 0))),
+      button('→', () => transform((p) => shift(p, side, 1, 0))),
+      button('↑', () => transform((p) => shift(p, side, 0, -1))),
+      button('↓', () => transform((p) => shift(p, side, 0, 1))),
+    ),
+    el(
+      'div',
+      { className: 'cr-row' },
+      button('Flip H', () => transform((p) => flip(p, side, false))),
+      button('Flip V', () => transform((p) => flip(p, side, true))),
+      button('Rotate 90°', () => transform((p) => rotateCW(p, side))),
+      button('Clear', () => transform(() => Array(side * side).fill(null))),
+    ),
     field(
       'PNG scale',
       select(
@@ -184,10 +265,39 @@ export function mount(root, ctx) {
       });
       savePNG(out, 'sprite.png');
     }),
+    button('Export SVG', () => {
+      const rects = pixels
+        .map((v, i) =>
+          v ? '<rect x="' + (i % side) + '" y="' + Math.floor(i / side) + '" width="1" height="1" fill="' + v + '"/>' : '',
+        )
+        .filter(Boolean)
+        .join('');
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' +
+        side +
+        ' ' +
+        side +
+        '" shape-rendering="crispEdges">' +
+        rects +
+        '</svg>';
+      saveFile('sprite.svg', svg, 'image/svg+xml');
+    }),
+    button('Save project JSON', () => saveFile('sprite-project.json', JSON.stringify(pixels))),
+    importFile(
+      'Open project JSON',
+      (d) => {
+        if (!validSprite(d)) throw Error('Choose a 24×24 Pixel Foundry JSON array.');
+        before = JSON.stringify(pixels);
+        pixels = d;
+        commit();
+      },
+      status,
+    ),
   );
   stage.append(
     el('div', { className: 'cr-preview' }, canvas),
-    el('p', { className: 'cr-caption' }, 'Drag to paint. Checkerboard cells export as transparent pixels.'),
+    paletteSummary,
+    el('p', { className: 'cr-caption' }, 'Drag to paint shapes or pixels. Checkerboard cells export as transparent.'),
     status,
   );
   keyboardGrid(
@@ -196,7 +306,8 @@ export function mount(root, ctx) {
     (x, y) => {
       before = JSON.stringify(pixels);
       last = null;
-      paint(x, y);
+      anchor = null;
+      paint(x, y, false);
       commit();
     },
     (x, y) => pixels[y * side + x] || 'transparent',

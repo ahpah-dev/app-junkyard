@@ -1,5 +1,15 @@
 import { el } from '../../shared/ui.js';
-import { bars, gridTable, jsonExport, jsonLines, lab, metrics, rowsOf } from '../../shared/lab.js';
+import {
+  bars,
+  csvExport,
+  gridTable,
+  jsonExport,
+  jsonLines,
+  lab,
+  metrics,
+  rowsOf,
+  words,
+} from '../../shared/lab.js';
 import { compare } from './model.js';
 
 const suite = jsonLines([
@@ -21,7 +31,35 @@ const suite = jsonLines([
     baseline: 'account settings',
     candidate: 'cancel from account settings',
   },
+  {
+    id: 'sum-01',
+    group: 'Summary',
+    rule: 'bleu',
+    expected: 'export your ledger as csv anytime',
+    baseline: 'download csv ledger',
+    candidate: 'export your ledger as csv anytime from billing',
+  },
+  {
+    id: 'tag-01',
+    group: 'Tags',
+    rule: 'jaccard',
+    expected: 'invoice receipt tax',
+    baseline: 'invoice tax',
+    candidate: 'invoice receipt tax',
+  },
 ]);
+
+function tokenDiff(expected, candidate) {
+  const ref = new Set(words(expected));
+  const hyp = new Set(words(candidate));
+  const missing = [...ref].filter((w) => !hyp.has(w));
+  const extra = [...hyp].filter((w) => !ref.has(w));
+  if (!missing.length && !extra.length) return 'Exact token match';
+  const parts = [];
+  if (missing.length) parts.push('Missing: ' + missing.join(', '));
+  if (extra.length) parts.push('Extra: ' + extra.join(', '));
+  return parts.join(' · ');
+}
 
 export function mount(root, ctx) {
   lab(root, ctx, {
@@ -35,11 +73,11 @@ export function mount(root, ctx) {
         rows: 10,
         value: suite,
         import: '.jsonl,.ndjson,.txt',
-        hint: 'Use id, expected, baseline and candidate. Optional rules are exact, contains and f1.',
+        hint: 'Use id, expected, baseline and candidate. Optional rules: exact, contains, f1, jaccard, bleu.',
       },
       {
         key: 'cutoff',
-        label: 'Minimum token F1 to pass',
+        label: 'Minimum F1 / Jaccard / BLEU to pass',
         type: 'number',
         value: '0.8',
         attrs: { min: 0.01, max: 1, step: 'any' },
@@ -68,7 +106,7 @@ export function mount(root, ctx) {
             el(
               'details',
               { className: 'panel' },
-              el('summary', {}, c.id + ' · ' + c.change),
+              el('summary', {}, c.id + ' · ' + c.change + ' (' + c.baselineScore.toFixed(2) + ' → ' + c.candidateScore.toFixed(2) + ')'),
               gridTable(
                 ['Field', 'Value'],
                 [
@@ -77,6 +115,7 @@ export function mount(root, ctx) {
                   ['Baseline', c.baseline],
                   ['Candidate', c.candidate],
                   ['Scores', c.baselineScore.toFixed(3) + ' → ' + c.candidateScore.toFixed(3)],
+                  ['Candidate token diff', tokenDiff(c.expected, c.candidate)],
                 ],
               ),
             ),
@@ -89,6 +128,9 @@ export function mount(root, ctx) {
         metrics([
           ['Baseline passes', r.baselinePass + ' / ' + r.cases.length],
           ['Candidate passes', r.candidatePass + ' / ' + r.cases.length],
+          ['Mean score Δ', (r.stats.meanDelta >= 0 ? '+' : '') + r.stats.meanDelta.toFixed(3)],
+          ['Sign-test p-value', r.stats.pValue.toFixed(4)],
+          ['Win / Loss / Tie', r.stats.wins + ' / ' + r.stats.losses + ' / ' + r.stats.ties],
         ]),
         bars(
           'Outcome changes',
@@ -109,7 +151,27 @@ export function mount(root, ctx) {
         el('label', { for: 'case-filter' }, 'Show cases'),
         filter,
         list,
-        jsonExport(context, 'run-compare.json', r),
+        el(
+          'div',
+          { className: 'actions' },
+          csvExport(
+            context,
+            'run-compare.csv',
+            ['ID', 'Group', 'Rule', 'Outcome', 'Baseline Score', 'Candidate Score', 'Baseline', 'Candidate'],
+            r.cases.map((c) => [
+              c.id,
+              c.group,
+              c.rule,
+              c.change,
+              c.baselineScore.toFixed(4),
+              c.candidateScore.toFixed(4),
+              c.baseline,
+              c.candidate,
+            ]),
+            'Download cases CSV',
+          ),
+          jsonExport(context, 'run-compare.json', r),
+        ),
       ];
     },
   });

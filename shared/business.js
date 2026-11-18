@@ -267,6 +267,8 @@ export function mountWorkbench(root, context, config) {
           (data) => save(rows.map((r) => (r.id === row.id ? update(r, data) : r))),
           label,
         ),
+      update: (nextRow) => save(rows.map((r) => (r.id === row.id ? nextRow : r))),
+      insert: (newRow) => save([...rows, newRow]),
       download: context.download,
       notify: context.notify,
     };
@@ -307,7 +309,7 @@ export function mountWorkbench(root, context, config) {
     );
     if (config.overview)
       overview.replaceChildren(
-        config.overview(
+        ...[config.overview(
           rows,
           (row) => {
             expanded = row.id;
@@ -327,7 +329,7 @@ export function mountWorkbench(root, context, config) {
             draw();
             list.scrollIntoView({ block: 'nearest' });
           },
-        ),
+        )].flat().filter(Boolean),
       );
     let visible = rows.filter(
       (r) =>
@@ -421,6 +423,61 @@ export function mountWorkbench(root, context, config) {
     },
     'Export CSV',
   );
+  const exportJsonButton = el(
+    'button',
+    {
+      type: 'button',
+      onClick: () => {
+        context.download(
+          config.id + '.json',
+          JSON.stringify({ version: 1, rows }, null, 2),
+          'application/json',
+        );
+      },
+    },
+    'Export JSON',
+  );
+  const importInput = el('input', {
+    type: 'file',
+    accept: '.json,application/json',
+    style: { display: 'none' },
+  });
+  importInput.addEventListener('change', async () => {
+    const file = importInput.files[0];
+    if (!file) return;
+    try {
+      demand(file.size <= 1500000, 'File exceeds 1.5 MB.');
+      const parsed = JSON.parse(await file.text());
+      demand(parsed && Array.isArray(parsed.rows), 'Choose an exported JSON workspace with a rows array.');
+      expanded = null;
+      save(parsed.rows);
+      context.notify('Imported ' + parsed.rows.length + ' ' + config.plural + '.');
+    } catch (error) {
+      context.notify('Import failed: ' + error.message);
+    } finally {
+      importInput.value = '';
+    }
+  });
+  const importJsonButton = el(
+    'button',
+    { type: 'button', onClick: () => importInput.click() },
+    'Import JSON',
+  );
+  const resetButton = el(
+    'button',
+    {
+      type: 'button',
+      onClick: () => {
+        if (!window.confirm('Reset workspace to the sample ' + config.plural + '?')) return;
+        expanded = null;
+        save(config.seed());
+        context.notify('Sample ' + config.plural + ' restored.');
+      },
+    },
+    'Reset sample',
+  );
+  const extraToolbar =
+    config.toolbarActions?.(() => rows, save, { download: context.download, notify: context.notify }) ?? [];
   sheet.append(
     el(
       'div',
@@ -432,7 +489,18 @@ export function mountWorkbench(root, context, config) {
         'New ' + config.singular,
       ),
     ),
-    el('div', { className: 'biz-toolbar', style: { margin: '1rem 0' } }, searchBox, chooser, exportButton),
+    el(
+      'div',
+      { className: 'biz-toolbar', style: { margin: '1rem 0' } },
+      searchBox,
+      chooser,
+      exportButton,
+      exportJsonButton,
+      importJsonButton,
+      importInput,
+      resetButton,
+      ...extraToolbar,
+    ),
     list,
   );
   root.replaceChildren(
